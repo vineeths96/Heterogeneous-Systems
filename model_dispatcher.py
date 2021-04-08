@@ -70,7 +70,7 @@ class CIFAR:
         return model
 
     def train_dataloader(self, batch_size=32):
-        train_sampler = DistributedSampler(dataset=self._train_set, partitions=[0.80, 0.20])
+        train_sampler = DistributedSampler(dataset=self._train_set, partitions=[0.6, 0.4])
         train_sampler.set_epoch(self._epoch)
 
         rank = torch.distributed.get_rank()
@@ -78,7 +78,7 @@ class CIFAR:
         if rank==0:
             train_loader = DataLoader(
                 dataset=self._train_set,
-                batch_size=batch_size * 4,
+                batch_size=int(batch_size * 3 / 2),
                 sampler=train_sampler,
                 pin_memory=True,
                 drop_last=True,

@@ -186,7 +186,12 @@ def train(local_rank):
                 if global_iteration_count % config["local_steps"] == 0:
                     with timer("batch.accumulate", epoch_frac, verbosity=2):
                         for grad, send_buffer in zip(grads, send_buffers):
-                            send_buffer[:] = grad
+                            # TODO Here change
+                            # send_buffer[:] = grad
+                            if local_rank == 0:
+                                send_buffer[:] = 0.6 * grad
+                            else:
+                                send_buffer[:] = 0.4 * grad
 
                     with timer("batch.reduce", epoch_frac):
                         bits_communicated += reducer.reduce(send_buffers, grads)
