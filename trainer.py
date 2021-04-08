@@ -173,6 +173,12 @@ def train(local_rank):
             global_iteration_count += 1
             epoch_frac = epoch + i / model.len_train_loader
 
+            # print(f"Rank {local_rank}, i {i}, len {model.len_train_loader}, batch {len(batch[0])}")
+            # if local_rank == 1:
+            #     import time
+            #
+            #     time.sleep(5)
+
             with timer("batch", epoch_frac):
                 _, grads, metrics = model.batch_loss_with_gradients(batch)
                 epoch_metrics.add(metrics)

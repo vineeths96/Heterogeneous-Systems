@@ -2,10 +2,12 @@ import torch
 import torchvision
 import torch.distributed as dist
 import torchvision.transforms as transforms
-from torch.utils.data import DataLoader, DistributedSampler
+from torch.utils.data import DataLoader
+# from torch.utils.data import DataLoader, DistributedSampler
 
 import models
 from metrics import AverageMeter
+from distributed_sampler import DistributedSampler
 
 
 class CIFAR:
@@ -51,6 +53,10 @@ class CIFAR:
         )
 
         train_set = torchvision.datasets.CIFAR10(root=data_path, train=True, download=True, transform=transform_train)
+
+        # print(train_set[10])
+        # exit(66)
+
         test_set = torchvision.datasets.CIFAR10(root=data_path, train=False, download=True, transform=transform_test)
 
         return train_set, test_set
@@ -64,17 +70,29 @@ class CIFAR:
         return model
 
     def train_dataloader(self, batch_size=32):
-        train_sampler = DistributedSampler(dataset=self._train_set)
+        train_sampler = DistributedSampler(dataset=self._train_set, partitions=[0.80, 0.20])
         train_sampler.set_epoch(self._epoch)
 
-        train_loader = DataLoader(
-            dataset=self._train_set,
-            batch_size=batch_size,
-            sampler=train_sampler,
-            pin_memory=True,
-            drop_last=True,
-            num_workers=dist.get_world_size(),
-        )
+        rank = torch.distributed.get_rank()
+
+        if rank==0:
+            train_loader = DataLoader(
+                dataset=self._train_set,
+                batch_size=batch_size * 4,
+                sampler=train_sampler,
+                pin_memory=True,
+                drop_last=True,
+                num_workers=dist.get_world_size(),
+            )
+        else:
+            train_loader = DataLoader(
+                dataset=self._train_set,
+                batch_size=batch_size,
+                sampler=train_sampler,
+                pin_memory=True,
+                drop_last=True,
+                num_workers=dist.get_world_size(),
+            )
 
         self.len_train_loader = len(train_loader)
 
@@ -86,29 +104,8 @@ class CIFAR:
 
         self._epoch += 1
 
-    def auxiliary_train_dataloader(self, batch_size=32):
-        train_sampler = DistributedSampler(dataset=self._train_set)
-        train_sampler.set_epoch(self._epoch)
-
-        train_loader = DataLoader(
-            dataset=self._train_set,
-            batch_size=batch_size,
-            sampler=train_sampler,
-            pin_memory=True,
-            drop_last=True,
-            num_workers=dist.get_world_size(),
-        )
-
-        self.len_aux_train_loader = len(train_loader)
-
-        for imgs, labels in train_loader:
-            imgs = imgs.to(self._device)
-            labels = labels.to(self._device)
-
-            yield imgs, labels
-
     def test_dataloader(self, batch_size=32):
-        test_sampler = DistributedSampler(dataset=self._test_set)
+        test_sampler = torch.utils.data.DistributedSampler(dataset=self._test_set)
 
         test_loader = DataLoader(
             dataset=self._test_set,
@@ -152,23 +149,6 @@ class CIFAR:
             loss.backward()
 
         with self._timer("batch.evaluate", float(self._epoch)):
-            metrics = self.evaluate_predictions(prediction, labels)
-
-        grad_vec = [parameter.grad for parameter in self._model.parameters()]
-
-        return loss.detach(), grad_vec, metrics
-
-    def auxiliary_batch_loss_with_gradients(self, batch):
-        imgs, labels = batch
-
-        with self._timer("batch.auxiliary.forward", float(self._epoch)):
-            prediction = self._model(imgs)
-            loss = self._criterion(prediction, labels)
-
-        with self._timer("batch.auxiliary.backward", float(self._epoch)):
-            loss.backward()
-
-        with self._timer("batch.auxiliary.evaluate", float(self._epoch)):
             metrics = self.evaluate_predictions(prediction, labels)
 
         grad_vec = [parameter.grad for parameter in self._model.parameters()]
