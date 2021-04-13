@@ -40,9 +40,14 @@ class DistributedSampler(Sampler[T_co]):
         self.rank = rank
         self.epoch = 0
 
-        self.adaptive_batch_sizes = [self.partition_fractions[worker_ind] * self.batch_size for worker_ind in range(num_replicas)]
+        self.adaptive_batch_sizes = [
+            self.partition_fractions[worker_ind] * self.batch_size for worker_ind in range(num_replicas)
+        ]
         self.rough_partition_sizes = [math.ceil(partition * len(self.dataset)) for partition in partitions]
-        self.partition_sizes = [math.ceil(partition_size / adaptive_batch_size) * math.floor(adaptive_batch_size) for partition_size, adaptive_batch_size in zip(self.rough_partition_sizes, self.adaptive_batch_sizes)]
+        self.partition_sizes = [
+            math.ceil(partition_size / adaptive_batch_size) * math.floor(adaptive_batch_size)
+            for partition_size, adaptive_batch_size in zip(self.rough_partition_sizes, self.adaptive_batch_sizes)
+        ]
 
         self.num_samples = self.partition_sizes[self.rank]
         self.total_size = sum(self.partition_sizes)
