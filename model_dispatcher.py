@@ -53,10 +53,6 @@ class CIFAR:
         )
 
         train_set = torchvision.datasets.CIFAR10(root=data_path, train=True, download=True, transform=transform_train)
-
-        # print(train_set[10])
-        # exit(66)
-
         test_set = torchvision.datasets.CIFAR10(root=data_path, train=False, download=True, transform=transform_test)
 
         return train_set, test_set
@@ -70,29 +66,17 @@ class CIFAR:
         return model
 
     def train_dataloader(self, batch_size=32):
-        train_sampler = DistributedSampler(dataset=self._train_set, partitions=[0.6, 0.4])
+        train_sampler = DistributedSampler(dataset=self._train_set, batch_size=batch_size, partitions=[0.5412432541868, 1 - 0.5412432541868])
         train_sampler.set_epoch(self._epoch)
+        batch_size = train_sampler.get_batch_size()
 
-        rank = torch.distributed.get_rank()
-
-        if rank==0:
-            train_loader = DataLoader(
-                dataset=self._train_set,
-                batch_size=int(batch_size * 3 / 2),
-                sampler=train_sampler,
-                pin_memory=True,
-                drop_last=True,
-                num_workers=dist.get_world_size(),
-            )
-        else:
-            train_loader = DataLoader(
-                dataset=self._train_set,
-                batch_size=batch_size,
-                sampler=train_sampler,
-                pin_memory=True,
-                drop_last=True,
-                num_workers=dist.get_world_size(),
-            )
+        train_loader = DataLoader(
+            dataset=self._train_set,
+            batch_size=batch_size,
+            sampler=train_sampler,
+            pin_memory=True,
+            num_workers=dist.get_world_size(),
+        )
 
         self.len_train_loader = len(train_loader)
 
@@ -105,14 +89,13 @@ class CIFAR:
         self._epoch += 1
 
     def test_dataloader(self, batch_size=32):
-        test_sampler = torch.utils.data.DistributedSampler(dataset=self._test_set)
+        test_sampler = DistributedSampler(dataset=self._test_set, batch_size=batch_size, partitions=[0.5412432541868, 1 - 0.5412432541868])
 
         test_loader = DataLoader(
             dataset=self._test_set,
             batch_size=batch_size,
             sampler=test_sampler,
             pin_memory=True,
-            drop_last=True,
             num_workers=dist.get_world_size(),
         )
 
