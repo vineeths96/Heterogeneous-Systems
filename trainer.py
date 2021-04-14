@@ -41,11 +41,11 @@ from metrics import AverageMeter
 
 config = dict(
     distributed_backend="nccl",
-    num_epochs=150,
-    batch_size=128,
+    num_epochs=100,
+    batch_size=128 * 2,
     # architecture="LeNet",
-    # architecture="ResNet50",
-    architecture="VGG16",
+    architecture="ResNet50",
+    # architecture="VGG16",
     local_steps=1,
     # K=10000,
     # compression=1/1000,
@@ -72,7 +72,7 @@ def initiate_distributed():
     )
 
 
-def train(local_rank):
+def train(local_rank, world_size):
     logger = Logger(config, local_rank)
 
     # torch.manual_seed(config["seed"] + local_rank)
@@ -151,6 +151,7 @@ def train(local_rank):
     model = CIFAR(device, timer, config["architecture"], config["seed"] + local_rank)
 
     send_buffers = [torch.zeros_like(param) for param in model.parameters]
+    partitions = [1 / world_size] * world_size
 
     # optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9, weight_decay=5e-4)
     optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9, weight_decay=5e-4, nesterov=True)
@@ -165,41 +166,77 @@ def train(local_rank):
                 {"Progress": epoch / config["num_epochs"], "Current_epoch": epoch},
                 {"lr": scheduler.get_last_lr()},
             )
+        logger.log_info("partition_info", {"Current_epoch": epoch}, {"Rank": local_rank, "Current_size": partitions[local_rank]})
 
         epoch_metrics = AverageMeter(device)
 
-        train_loader = model.train_dataloader(config["batch_size"])
+        train_loader = model.train_dataloader(partitions, config["batch_size"])
         for i, batch in enumerate(train_loader):
             global_iteration_count += 1
             epoch_frac = epoch + i / model.len_train_loader
 
-            # print(f"Rank {local_rank}, i {i}, len {model.len_train_loader}, batch {len(batch[0])}")
-            # if local_rank == 1:
-            #     import time
-            #
-            #     time.sleep(5)
+            if i % 100 == 0:
+                print(local_rank, model.len_train_loader, len(batch[0]))
 
             with timer("batch", epoch_frac):
-                _, grads, metrics = model.batch_loss_with_gradients(batch)
-                epoch_metrics.add(metrics)
+                with timer("batch.process", epoch_frac):
+                    _, grads, metrics = model.batch_loss_with_gradients(batch)
+                    epoch_metrics.add(metrics)
 
-                if global_iteration_count % config["local_steps"] == 0:
-                    with timer("batch.accumulate", epoch_frac, verbosity=2):
-                        for grad, send_buffer in zip(grads, send_buffers):
-                            # TODO Here change
-                            # send_buffer[:] = grad
-                            if local_rank == 0:
-                                send_buffer[:] = 0.6 * grad
-                            else:
-                                send_buffer[:] = 0.4 * grad
+                    if local_rank == 0:
+                        import time
 
-                    with timer("batch.reduce", epoch_frac):
-                        bits_communicated += reducer.reduce(send_buffers, grads)
+                        # time.sleep(np.random.random(1))
+                        time.sleep(0.1)
+
+                    if global_iteration_count % config["local_steps"] == 0:
+                        with timer("batch.accumulate", epoch_frac, verbosity=2):
+                            for grad, send_buffer in zip(grads, send_buffers):
+                                # TODO Here change
+                                send_buffer[:] = grad
+
+                                # if local_rank == 0:
+                                #     send_buffer[:] = 0.6 * grad
+                                # else:
+                                #     send_buffer[:] = 0.4 * grad
+
+                with timer("batch.reduce", epoch_frac):
+                    # import datetime
+                    # print(local_rank, datetime.datetime.now())
+
+                    bits_communicated += reducer.reduce(send_buffers, grads)
 
                 with timer("batch.step", epoch_frac, verbosity=2):
                     optimizer.step()
 
         scheduler.step()
+
+        mean_batch_process_time = torch.tensor(sum(timer.batch_process_times) / len(timer.batch_process_times), device=device, dtype=torch.float32)
+        collected_batch_process_times = [torch.empty_like(mean_batch_process_time) for _ in range(world_size)]
+
+        timer.batch_process_times = []
+        print(mean_batch_process_time)
+
+        if world_size > 1:
+            batch_process_time_workers_op = torch.distributed.all_gather(tensor_list=collected_batch_process_times, tensor=mean_batch_process_time, async_op=True)
+            batch_process_time_workers_op.wait()
+        else:
+            collected_batch_process_times = mean_batch_process_time
+
+        # print(collected_batch_process_times)
+        # print(partitions)
+
+        # mean_collected_batch_process_times = sum(collected_batch_process_times) / len(collected_batch_process_times)
+        # partitions = [(mean_collected_batch_process_times / batch_process_time).item() for batch_process_time in collected_batch_process_times]
+        # partitions = [partition / sum(partitions) for partition in partitions]
+
+        # partitions = [(1 - (batch_process_time / sum(collected_batch_process_times)**2 )).item() for batch_process_time in collected_batch_process_times]
+        # partitions = [partition / sum(partitions) for partition in partitions]
+
+        # partitions = [((partition / batch_process_time)**2).item() for batch_process_time, partition in zip(collected_batch_process_times, partitions)]
+        # partitions = [partition / sum(partitions) for partition in partitions]
+
+        # print(partitions)
 
         with timer("epoch_metrics.collect", epoch, verbosity=2):
             epoch_metrics.reduce()
@@ -212,7 +249,7 @@ def train(local_rank):
                     )
 
         with timer("test.last", epoch):
-            test_stats = model.test()
+            test_stats = model.test(partitions)
             if local_rank == 0:
                 for key, value in test_stats.values().items():
                     logger.log_info(
@@ -245,4 +282,5 @@ if __name__ == "__main__":
     local_rank = args.local_rank
 
     initiate_distributed()
-    train(local_rank)
+    world_size = dist.get_world_size()
+    train(local_rank, world_size)

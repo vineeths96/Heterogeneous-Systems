@@ -3,8 +3,10 @@ import json
 from contextlib import contextmanager
 from io import StringIO
 
-import numpy as np
 import torch
+import numpy as np
+import torch.distributed as dist
+
 
 
 class Timer:
@@ -26,6 +28,7 @@ class Timer:
         self.cuda_available = torch.cuda.is_available() and on_cuda
 
         self.reduce_times = []
+        self.batch_process_times = []
 
         self.reset()
 
@@ -53,6 +56,9 @@ class Timer:
         if label == "batch.reduce":
             self.reduce_times.append(end - start)
 
+        if label == "batch.process":
+            self.batch_process_times.append(end - start)
+
         # Update first and last occurrence of this label
         if label not in self.first_time:
             self.first_time[label] = start
@@ -74,8 +80,9 @@ class Timer:
             # We will reduce the probability of logging a timing
             # linearly with the number of time we have seen it.
             # It will always be recorded in the totals, though.
+
             if np.random.rand() < 1 / self.call_counts[label]:
-                self.log_fn("timer", {"epoch": epoch, "value": end - start}, {"event": label})
+                self.log_fn(f"timer {dist.get_rank()}", {"epoch": epoch, "value": end - start}, {"event": label})
 
     def summary(self):
         """

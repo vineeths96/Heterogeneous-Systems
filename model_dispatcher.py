@@ -66,9 +66,9 @@ class CIFAR:
 
         return model
 
-    def train_dataloader(self, batch_size=32):
+    def train_dataloader(self, partitions, batch_size=32):
         train_sampler = DistributedSampler(
-            dataset=self._train_set, batch_size=batch_size, partitions=[0.5412432541868, 1 - 0.5412432541868]
+            dataset=self._train_set, batch_size=batch_size, partitions=partitions
         )
         train_sampler.set_epoch(self._epoch)
         batch_size = train_sampler.get_batch_size()
@@ -91,9 +91,9 @@ class CIFAR:
 
         self._epoch += 1
 
-    def test_dataloader(self, batch_size=32):
+    def test_dataloader(self, partition, batch_size=32):
         test_sampler = DistributedSampler(
-            dataset=self._test_set, batch_size=batch_size, partitions=[0.5412432541868, 1 - 0.5412432541868]
+            dataset=self._test_set, batch_size=batch_size, partitions=partition
         )
 
         test_loader = DataLoader(
@@ -172,8 +172,8 @@ class CIFAR:
     def state_dict(self):
         return self._model.state_dict()
 
-    def test(self, batch_size=256):
-        test_loader = self.test_dataloader(batch_size=batch_size)
+    def test(self, partitions, batch_size=128):
+        test_loader = self.test_dataloader(partition=partitions, batch_size=batch_size)
 
         mean_metrics = AverageMeter(self._device)
         test_model = self._model
