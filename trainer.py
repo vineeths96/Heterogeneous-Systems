@@ -233,8 +233,8 @@ def train(local_rank, world_size):
         # partitions = [(1 - (batch_process_time / sum(collected_batch_process_times)**2 )).item() for batch_process_time in collected_batch_process_times]
         # partitions = [partition / sum(partitions) for partition in partitions]
 
-        # partitions = [((partition / batch_process_time)**2).item() for batch_process_time, partition in zip(collected_batch_process_times, partitions)]
-        # partitions = [partition / sum(partitions) for partition in partitions]
+        partitions = [(partition / batch_process_time).item() for batch_process_time, partition in zip(collected_batch_process_times, partitions)]
+        partitions = [partition / sum(partitions) for partition in partitions]
 
         # print(partitions)
 
