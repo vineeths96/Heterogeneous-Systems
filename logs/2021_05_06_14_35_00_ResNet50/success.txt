@@ -1,6 +1,6 @@
-Training completed at 2021-04-14 21:07:03.367911
+Training completed at 2021-05-06 17:35:25.541647
 
-Best Top 1 Accuracy: 0.9765625
+Best Top 1 Accuracy: 0.9921875
 Best Top 5 Accuracy: 1.0
 
 Training parameters
