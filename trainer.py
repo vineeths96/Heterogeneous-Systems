@@ -41,12 +41,14 @@ from metrics import AverageMeter
 
 config = dict(
     distributed_backend="nccl",
-    num_epochs=100,
+    num_epochs=150,
     batch_size=128 * 2,
-    # architecture="LeNet",
     architecture="ResNet50",
     # architecture="VGG16",
     local_steps=1,
+    scale_factor=0.25,
+    # dynamic_partition = True,
+    dynamic_partition = False,
     # K=10000,
     # compression=1/1000,
     # quantization_level=6,
@@ -175,9 +177,6 @@ def train(local_rank, world_size):
             global_iteration_count += 1
             epoch_frac = epoch + i / model.len_train_loader
 
-            if i % 100 == 0:
-                print(local_rank, model.len_train_loader, len(batch[0]))
-
             with timer("batch", epoch_frac):
                 with timer("batch.process", epoch_frac):
                     _, grads, metrics = model.batch_loss_with_gradients(batch)
@@ -186,24 +185,17 @@ def train(local_rank, world_size):
                     if local_rank == 0:
                         import time
 
-                        # time.sleep(np.random.random(1))
-                        time.sleep(0.1)
+                        # time.sleep((np.random.gamma(config['scale_factor'])))
+                        time.sleep((np.random.exponential(config['scale_factor'])))
 
                     if global_iteration_count % config["local_steps"] == 0:
                         with timer("batch.accumulate", epoch_frac, verbosity=2):
                             for grad, send_buffer in zip(grads, send_buffers):
                                 # TODO Here change
                                 send_buffer[:] = grad
-
-                                # if local_rank == 0:
-                                #     send_buffer[:] = 0.6 * grad
-                                # else:
-                                #     send_buffer[:] = 0.4 * grad
+                                # send_buffer[:] = grad * partitions[local_rank]
 
                 with timer("batch.reduce", epoch_frac):
-                    # import datetime
-                    # print(local_rank, datetime.datetime.now())
-
                     bits_communicated += reducer.reduce(send_buffers, grads)
 
                 with timer("batch.step", epoch_frac, verbosity=2):
@@ -233,8 +225,9 @@ def train(local_rank, world_size):
         # partitions = [(1 - (batch_process_time / sum(collected_batch_process_times)**2 )).item() for batch_process_time in collected_batch_process_times]
         # partitions = [partition / sum(partitions) for partition in partitions]
 
-        partitions = [(partition / batch_process_time).item() for batch_process_time, partition in zip(collected_batch_process_times, partitions)]
-        partitions = [partition / sum(partitions) for partition in partitions]
+        if config['dynamic_partition']:
+            partitions = [(partition / batch_process_time).item() for batch_process_time, partition in zip(collected_batch_process_times, partitions)]
+            partitions = [partition / sum(partitions) for partition in partitions]
 
         # print(partitions)
 
