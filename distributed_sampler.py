@@ -84,4 +84,4 @@ class DistributedSampler(Sampler[T_co]):
         self.epoch = epoch
 
     def get_batch_size(self):
-        return math.floor(self.adaptive_batch_sizes[self.rank])
+        return max(math.floor(self.adaptive_batch_sizes[self.rank]), 1)

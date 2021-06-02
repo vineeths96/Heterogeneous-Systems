@@ -146,6 +146,7 @@ class Timer:
 
         # Uncomment to store reduce times
         # data["reduce_times"] = self.reduce_times
+        # data["process_times"] = self.batch_process_times
 
         with open(json_file_path, "w") as fp:
             json.dump(data, fp)
