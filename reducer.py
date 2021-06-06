@@ -22,6 +22,7 @@ from compressors import (
     QSGDMaxNormMultiScaleCompressor,
     # GlobalRandKMultiScaleCompressor,
 )
+from seed import set_seed
 
 
 class Reducer:
@@ -563,6 +564,7 @@ class QSGDMaxNormReducer(Reducer):
         return 8 * tensor.nelement() * tensor.element_size()
 
 
+# To use the below methods install the custom C++ PyTorch extensions
 # class QSGDBPReducer(Reducer):
 #     """
 #     All gather reducer with QSGD compression and without Elias encoding.
@@ -710,9 +712,10 @@ class GlobalRandKMaxNormReducer(Reducer):
     All gathers norms, normalizing with max norm, all reduces sign array * xi vector.
     """
 
-    def __init__(self, device, timer, K=10000, quantization_level=8):
+    def __init__(self, device, timer, seed, K=10000, quantization_level=8):
         super(GlobalRandKMaxNormReducer, self).__init__(device, timer)
         self._quantization_level = quantization_level
+        self._seed = seed
         self._K = K
         self._indices_queue = []
 
@@ -724,6 +727,7 @@ class GlobalRandKMaxNormReducer(Reducer):
             flat_grad = TensorBuffer(grad_in)
 
         if not self._indices_queue:
+            set_seed(self._seed)
             self._indices_queue = torch.randperm(len(flat_grad.buffer)).split(self._K)
             self._indices_queue = list(self._indices_queue)
 
@@ -781,9 +785,10 @@ class MaxNormGlobalRandKReducer(Reducer):
     All gathers norms, normalizing with max norm, all reduces sign array * xi vector.
     """
 
-    def __init__(self, device, timer, K=10000, quantization_level=8):
+    def __init__(self, device, timer, seed, K=10000, quantization_level=8):
         super(MaxNormGlobalRandKReducer, self).__init__(device, timer)
         self._quantization_level = quantization_level
+        self._seed = seed
         self._K = K
         self._indices_queue = []
 
@@ -795,6 +800,7 @@ class MaxNormGlobalRandKReducer(Reducer):
             flat_grad = TensorBuffer(grad_in)
 
         if not self._indices_queue:
+            set_seed(self._seed)
             self._indices_queue = torch.randperm(len(flat_grad.buffer)).split(self._K)
             self._indices_queue = list(self._indices_queue)
 
@@ -1634,11 +1640,13 @@ class GlobalRandKMaxNormTwoScaleReducer(Reducer):
         self,
         device,
         timer,
+        seed,
         K=10000,
         lower_quantization_level=6,
         higher_quantization_level=10,
     ):
         super(GlobalRandKMaxNormTwoScaleReducer, self).__init__(device, timer)
+        self._seed = seed
         self._lower_quantization_level = lower_quantization_level
         self._higher_quantization_level = higher_quantization_level
         self._K = K
@@ -1656,6 +1664,7 @@ class GlobalRandKMaxNormTwoScaleReducer(Reducer):
             flat_grad = TensorBuffer(grad_in)
 
         if not self._indices_queue:
+            set_seed(self._seed)
             self._indices_queue = torch.randperm(len(flat_grad.buffer)).split(self._K)
             self._indices_queue = list(self._indices_queue)
 
@@ -1806,105 +1815,150 @@ class QSGDMaxNormMultiScaleReducer(Reducer):
         return 8 * tensor.nelement() * tensor.element_size()
 
 
-# class GlobalRandKMaxNormMultiScaleReducer(Reducer):
-#     """
-#     All reduce reducer with QSGD MaxNorm Multi Level compression of random K indices.
-#     All gathers norms, normalizing with max norm, find common low resolution mask,
-#     All reduces two scale sign array * xi vector.
-#     """
-#
-#     def __init__(
-#         self,
-#         device,
-#         timer,
-#         K=10000,
-#         quantization_levels=None,
-#     ):
-#         super(GlobalRandKMaxNormMultiScaleReducer, self).__init__(device, timer)
-#         self._K = K
-#
-#         if not quantization_levels:
-#             quantization_levels = [6, 10]
-#
-#         quantization_levels.sort()
-#         self._quantization_levels = quantization_levels
-#
-#         self._indices_queue = []
-#
-#     def reduce(self, grad_in, grad_out):
-#         bits_communicated = 0
-#         compressor = GlobalRandKMaxNormMultiScaleReducer(
-#             self._device,
-#             self._quantization_levels,
-#         )
-#
-#         # From here
-#         with self._timer("reduce.flat_pack"):
-#             flat_grad = TensorBuffer(grad_in)
-#
-#         if not self._indices_queue:
-#             self._indices_queue = torch.randperm(len(flat_grad.buffer)).split(self._K)
-#             self._indices_queue = list(self._indices_queue)
-#
-#         RandK_indices = self._indices_queue.pop().numpy()
-#         RandK_flat_grad = flat_grad.buffer[RandK_indices]
-#
-#         with self._timer("reduce.norm", verbosity=2):
-#             norm = RandK_flat_grad.abs().max()
-#
-#             if self.n_workers > 1:
-#                 collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
-#                 norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms, tensor=norm, async_op=True)
-#
-#                 norms_gather_op.wait()
-#                 max_norm = max(collected_norms)
-#             else:
-#                 max_norm = norm
-#
-#         with self._timer("reduce.compress", verbosity=2):
-#             sign_xi_array_lower = compressor.compress_lower(max_norm, RandK_flat_grad)
-#             sign_xi_array_higher, higher_resolution_mask = compressor.compress_higher(max_norm, RandK_flat_grad)
-#
-#             if self.n_workers > 1:
-#                 high_mask_op = torch.distributed.all_reduce(
-#                     tensor=higher_resolution_mask,
-#                     op=torch.distributed.ReduceOp.PRODUCT,
-#                     async_op=True,
-#                 )
-#                 high_mask_op.wait()
-#
-#             else:
-#                 higher_resolution_mask = higher_resolution_mask
-#
-#             sign_xi_array = (
-#                 higher_resolution_mask * sign_xi_array_higher + (1 - higher_resolution_mask) * sign_xi_array_lower
-#             )
-#
-#         with self._timer("reduce.reduce.vector", verbosity=2):
-#             if self.n_workers > 1:
-#                 sign_xi_reduce_op = torch.distributed.all_reduce(tensor=sign_xi_array, async_op=True)
-#                 sign_xi_reduce_op.wait()
-#                 sign_xi_array.true_divide(self.n_workers)
-#             else:
-#                 sign_xi_array = sign_xi_array
-#
-#         bits_communicated += self.n_bits(norm) + self.n_bits(higher_resolution_mask) + self.n_bits(sign_xi_array)
-#
-#         with self._timer("reduce.decompress", verbosity=2):
-#             RandK_decompressed = compressor.decompress(max_norm, sign_xi_array, higher_resolution_mask)
-#
-#         with self._timer("reduce.setgrad", verbosity=2):
-#             flat_grad.buffer[RandK_indices] = RandK_decompressed
-#
-#             for out in grad_out:
-#                 out[:] = 0.0
-#
-#             for grad, out in zip(flat_grad, grad_out):
-#                 # TODO Average or Sum
-#                 grad = grad.to(self._device)
-#                 out.add_(other=grad, alpha=1)
-#
-#         return bits_communicated
-#
-#     def n_bits(self, tensor):
-#         return 8 * tensor.nelement() * tensor.element_size()
+class RankKReducer(Reducer):
+    def __init__(self, device, timer, n_power_iterations=0, reuse_query=False, rank=1):
+        super().__init__(device, timer)
+
+        assert n_power_iterations == 0
+        self.rank = rank
+        self.p_memory = None
+        self.q_memory = None
+        self.reuse_query = reuse_query
+
+        self._memory = []
+
+    def reduce(self, grad_in, grad_out):
+        bits_communicated = 0
+
+        if not self._memory:
+            self._memory = [torch.zeros_like(grad) for grad in grad_in]
+            self._memory = TensorBuffer(self._memory)
+        else:
+            for grad, mem in zip(grad_in, self._memory):
+                grad[:] += mem
+
+        rank1_tensors = [
+            (tensor, out, mem)
+            for tensor, out, mem in zip(grad_in, grad_out, self._memory)
+            if tensor.ndimension() <= 1
+        ]
+        high_rank_tensors = [
+            (tensor, out, mem)
+            for tensor, out, mem in zip(grad_in, grad_out, self._memory)
+            if tensor.ndimension() > 1
+        ]
+
+        memory_is_uninitialized = self.p_memory is None
+
+        with self._timer("reduce.allocate_memory", verbosity=2):
+            p_total_size = 0
+            q_total_size = 0
+            for tensor, _, _ in high_rank_tensors:
+                matrix = tensor.view(tensor.shape[0], -1)
+                n, m = matrix.shape
+                rank = min(n, m, self.rank)
+                p_total_size += n * rank
+                q_total_size += m * rank
+            if self.p_memory is None:
+                self.p_memory = torch.empty(p_total_size, device=self._device)
+                self.q_memory = torch.empty(q_total_size, device=self._device)
+
+            ps = []
+            qs = []
+            p_idx = 0
+            q_idx = 0
+            for tensor, _, _ in high_rank_tensors:
+                matrix = tensor.view(tensor.shape[0], -1)
+                n, m = matrix.shape
+                rank = min(n, m, self.rank)
+                ps.append(self.p_memory[p_idx : p_idx + n * rank].view(n, rank))
+                qs.append(self.q_memory[q_idx : q_idx + m * rank].view(m, rank))
+                p_idx += n * rank
+                q_idx += m * rank
+
+        with self._timer("reduce.prepare.q", verbosity=2):
+            for (tensor, _, _), q, p in zip(high_rank_tensors, qs, ps):
+                matrix = tensor.view(tensor.shape[0], -1)
+                n, m = matrix.shape
+
+                if self.reuse_query and not memory_is_uninitialized:
+                    # orthogonalize(q)
+                    pass
+                else:
+                    q.normal_()
+
+        with self._timer("reduce.compute.p", verbosity=2):
+            for (tensor, _, _), q, p in zip(high_rank_tensors, qs, ps):
+                matrix = tensor.view(tensor.shape[0], -1)
+                torch.matmul(matrix, q, out=p)
+
+        with self._timer("reduce.p", verbosity=2):
+            if self.n_workers > 1:
+                p_memory_reduce_op = torch.distributed.all_reduce(tensor=self.p_memory, async_op=True)
+                p_memory_reduce_op.wait()
+            else:
+                self.p_memory = self.p_memory
+
+            bits_communicated += self.n_bits(self.p_memory)
+
+        with self._timer("reduce.rank1.pack", verbosity=2):
+            rank1_tensor_list = TensorBuffer([tensor for (tensor, _, _) in rank1_tensors])
+
+        with self._timer("reduce.rank1.all_reduce", verbosity=2):
+            if self.n_workers > 1:
+                tensor_reduce_op = torch.distributed.all_reduce(tensor=rank1_tensor_list.buffer, async_op=True)
+                tensor_reduce_op.wait()
+            else:
+                rank1_tensor_list = rank1_tensor_list
+
+            bits_communicated += self.n_bits(rank1_tensor_list.buffer)
+
+        with self._timer("reduce.normalize.p", verbosity=2):
+            for p in ps:
+                self.orthogonalize(p)
+
+        with self._timer("reduce.compute.q", verbosity=2):
+            for p, q, (tensor, _, _) in zip(ps, qs, high_rank_tensors):
+                matrix = tensor.view(tensor.shape[0], -1)
+                torch.matmul(matrix.t(), p, out=q)
+
+        with self._timer("reduce.q", verbosity=2):
+            if self.n_workers > 1:
+                q_memory_reduce_op = torch.distributed.all_reduce(tensor=self.q_memory, async_op=True)
+                q_memory_reduce_op.wait()
+            else:
+                self.q_memory = self.q_memory
+
+            bits_communicated += self.n_bits(self.q_memory)
+            self.q_memory.data[:] /= self.n_workers
+
+        with self._timer("reduce.outerprod", verbosity=2):
+            for p, q, (tensor, out, mem) in zip(ps, qs, high_rank_tensors):
+                torch.matmul(p, q.t(), out=out[:])
+                mem[:] = tensor - out
+
+        with self._timer("reduce.rank1.unpack", verbosity=2):
+            tensor_reduce_op.wait()
+            rank1_tensor_list.buffer /= self.n_workers
+
+            for grad, out in zip(rank1_tensor_list, [out for (_, out, _) in rank1_tensors]):
+                # TODO Average or Sum
+                grad = grad.to(self._device)
+                out.add_(other=grad, alpha=1)
+
+        return bits_communicated
+
+    # @torch.jit.script
+    def orthogonalize(self, matrix, eps=torch.tensor(1e-8)):
+        n, m = matrix.shape
+        for i in range(m):
+            col = matrix[:, i: i + 1]
+            col /= torch.sqrt(torch.sum(col ** 2)) + eps
+
+            if i + 1 < m:
+                rest = matrix[:, i + 1:]
+
+                rest -= torch.sum(col * rest, dim=0) * col
+
+    def n_bits(self, tensor):
+        return 8 * tensor.nelement() * tensor.element_size()

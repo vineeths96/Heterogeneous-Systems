@@ -29,6 +29,7 @@ class Timer:
 
         self.reduce_times = []
         self.batch_process_times = []
+        self.mean_batch_process_times = []
 
         self.reset()
 
@@ -147,6 +148,7 @@ class Timer:
         # Uncomment to store reduce times
         # data["reduce_times"] = self.reduce_times
         # data["process_times"] = self.batch_process_times
+        data["mean_batch_process_times"] = self.mean_batch_process_times
 
         with open(json_file_path, "w") as fp:
             json.dump(data, fp)

@@ -3,7 +3,6 @@ import torchvision
 import torch.distributed as dist
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
-
 # from torch.utils.data import DataLoader, DistributedSampler
 
 import models
@@ -180,7 +179,6 @@ class CIFAR:
         test_model.eval()
 
         for i, batch in enumerate(test_loader):
-            # print("Test ", i/self.len_test_loader)
             with torch.no_grad():
                 imgs, labels = batch
                 prediction = test_model(imgs)
@@ -188,7 +186,6 @@ class CIFAR:
 
             mean_metrics.add(metrics)
 
-        # print("Test Acc", mean_metrics.values()["top1_accuracy"])
         mean_metrics.reduce()
         test_model.train()
 
