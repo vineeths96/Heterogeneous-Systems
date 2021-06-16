@@ -54,8 +54,10 @@ config = dict(
     # delay_type="gamma",
     # delay_type="exponential",
     # scale_factor=0.25,
-    # dynamic_partition = True,
-    dynamic_partition = False,
+    dynamic_partition = True,
+    # dynamic_partition = False,
+    # enhance=False,
+    enhance=True,
     # K=10000,
     # compression=1/1000,
     # quantization_level=6,
@@ -196,7 +198,7 @@ def train(local_rank, world_size):
                         _, grads, metrics = model.batch_loss_with_gradients(batch)
                         epoch_metrics.add(metrics)
 
-                        if local_rank == 0:
+                        if local_rank == 1:
                             import time
 
                             if config["delay_type"] == "constant":
@@ -209,9 +211,10 @@ def train(local_rank, world_size):
                         if global_iteration_count % config["local_steps"] == 0:
                             with timer("batch.accumulate", epoch_frac, verbosity=2):
                                 for grad, send_buffer in zip(grads, send_buffers):
-                                    # TODO Here change
-                                    send_buffer[:] = grad
-                                    # send_buffer[:] = grad * partitions[local_rank]
+                                    if config['enhance']:
+                                        send_buffer[:] = grad * partitions[local_rank]
+                                    else:
+                                        send_buffer[:] = grad
 
                     with timer("batch.reduce", epoch_frac):
                         bits_communicated += reducer.reduce(send_buffers, grads)
