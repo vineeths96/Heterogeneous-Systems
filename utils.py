@@ -36,9 +36,9 @@ def plot_loss_curves(log_path):
     experiment_groups = [glob.glob(f"{log_path}/*{model}") for model in models]
 
     for group_ind, experiment_group in enumerate(experiment_groups):
-        fig, axes_main = plt.subplots(figsize=[10, 7])
-        axes_inner = plt.axes([0.65, 0.25, 0.3, 0.3])
-        axes_inner_range = list(range(0, 50))
+        fig, axes_main = plt.subplots()
+        # axes_inner = plt.axes([0.65, 0.4, 0.3, 0.3])
+        # axes_inner_range = list(range(0, 50))
 
         experiment_group.sort()
 
@@ -48,6 +48,7 @@ def plot_loss_curves(log_path):
             higher_quant_level = None
             compression = None
             rank = None
+            dynamic_partition = None
 
             with open(os.path.join(experiment, "success.txt")) as file:
                 for line in file:
@@ -67,6 +68,9 @@ def plot_loss_curves(log_path):
                     if line.startswith("rank"):
                         rank = line.split(": ")[-1]
 
+                    if line.startswith("dynamic_partition"):
+                        dynamic_partition = line.split(": ")[-1] == "True"
+
             if higher_quant_level:
                 label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
             elif quant_level:
@@ -75,6 +79,8 @@ def plot_loss_curves(log_path):
                 label = " ".join([reducer, "K:", compression])
             elif rank:
                 label = " ".join([reducer, "Rank", rank])
+            elif dynamic_partition:
+                label = " ".join([reducer, "DP"])
             else:
                 label = reducer
 
@@ -90,33 +96,35 @@ def plot_loss_curves(log_path):
                 np.arange(num_epochs),
                 mean_loss - std_dev_loss,
                 mean_loss + std_dev_loss,
-                alpha=0.5,
+                alpha=0.25,
             )
+            axes_main.set_ylim(0, 2.5)
 
-            axes_inner.plot(axes_inner_range, mean_loss[axes_inner_range])
-            axes_inner.fill_between(
-                axes_inner_range,
-                mean_loss[axes_inner_range] - std_dev_loss[axes_inner_range],
-                mean_loss[axes_inner_range] + std_dev_loss[axes_inner_range],
-                alpha=0,
-            )
+            # axes_inner.plot(axes_inner_range, mean_loss[axes_inner_range])
+            # axes_inner.fill_between(
+            #     axes_inner_range,
+            #     mean_loss[axes_inner_range] - std_dev_loss[axes_inner_range],
+            #     mean_loss[axes_inner_range] + std_dev_loss[axes_inner_range],
+            #     alpha=0,
+            # )
+            # axes_inner.set_ylim(0, 2.5)
 
             # axes_main.plot(loss, label=label)
             # axes_inner.plot(axes_inner_range, mean_loss[axes_inner_range])
 
-        axes_inner.grid()
-        mark_inset(
-            axes_main,
-            axes_inner,
-            loc1a=1,
-            loc1b=1,
-            loc2a=2,
-            loc2b=2,
-            fc="none",
-            ec="0.5",
-        )
+        # axes_inner.grid()
+        # mark_inset(
+        #     axes_main,
+        #     axes_inner,
+        #     loc1a=1,
+        #     loc1b=1,
+        #     loc2a=2,
+        #     loc2b=2,
+        #     fc="none",
+        #     ec="0.5",
+        # )
 
-        axes_main.grid()
+        # axes_main.grid()
         axes_main.set_xlabel("Epochs")
         axes_main.set_ylabel("Loss")
         # axes_main.set_title(f"Loss curve {models[group_ind]}")
@@ -132,9 +140,9 @@ def plot_loss_time_curves(log_path):
     experiment_groups = [glob.glob(f"{log_path}/*{model}") for model in models]
 
     for group_ind, experiment_group in enumerate(experiment_groups):
-        fig, axes_main = plt.subplots(figsize=[10, 7])
-        axes_inner = plt.axes([0.65, 0.25, 0.3, 0.3])
-        axes_inner_range = list(range(0, 50))
+        fig, axes_main = plt.subplots()
+        # axes_inner = plt.axes([0.65, 0.4, 0.3, 0.3])
+        # axes_inner_range = list(range(0, 50))
 
         experiment_group.sort()
 
@@ -144,6 +152,7 @@ def plot_loss_time_curves(log_path):
             higher_quant_level = None
             compression = None
             rank = None
+            dynamic_partition = None
 
             with open(os.path.join(experiment, "success.txt")) as file:
                 for line in file:
@@ -163,6 +172,9 @@ def plot_loss_time_curves(log_path):
                     if line.startswith("rank"):
                         rank = line.split(": ")[-1]
 
+                    if line.startswith("dynamic_partition"):
+                        dynamic_partition = line.split(": ")[-1] == "True"
+
             if higher_quant_level:
                 label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
             elif quant_level:
@@ -171,6 +183,8 @@ def plot_loss_time_curves(log_path):
                 label = " ".join([reducer, "K:", compression])
             elif rank:
                 label = " ".join([reducer, "Rank", rank])
+            elif dynamic_partition:
+                label = " ".join([reducer, "DP"])
             else:
                 label = reducer
 
@@ -192,34 +206,36 @@ def plot_loss_time_curves(log_path):
                 time,
                 mean_loss - std_dev_loss,
                 mean_loss + std_dev_loss,
-                alpha=0.5,
+                alpha=0.25,
             )
+            axes_main.set_ylim(0, 2.5)
 
-            axes_inner.plot(time[axes_inner_range], mean_loss[axes_inner_range])
-            axes_inner.fill_between(
-                time[axes_inner_range],
-                mean_loss[axes_inner_range] - std_dev_loss[axes_inner_range],
-                mean_loss[axes_inner_range] + std_dev_loss[axes_inner_range],
-                alpha=0,
-            )
+            # axes_inner.plot(time[axes_inner_range], mean_loss[axes_inner_range])
+            # axes_inner.fill_between(
+            #     time[axes_inner_range],
+            #     mean_loss[axes_inner_range] - std_dev_loss[axes_inner_range],
+            #     mean_loss[axes_inner_range] + std_dev_loss[axes_inner_range],
+            #     alpha=0,
+            # )
+            # axes_inner.set_ylim(0, 2.5)
 
             # axes_main.plot(time, loss, label=label)
             # axes_inner.plot(time[axes_inner_range], loss[axes_inner_range])
 
-        axes_inner.grid()
-        mark_inset(
-            axes_main,
-            axes_inner,
-            loc1a=1,
-            loc1b=1,
-            loc2a=2,
-            loc2b=2,
-            fc="none",
-            ec="0.5",
-        )
+        # axes_inner.grid()
+        # mark_inset(
+        #     axes_main,
+        #     axes_inner,
+        #     loc1a=1,
+        #     loc1b=1,
+        #     loc2a=2,
+        #     loc2b=2,
+        #     fc="none",
+        #     ec="0.5",
+        # )
 
-        axes_main.grid()
-        axes_main.set_xlabel("TIme")
+        # axes_main.grid()
+        axes_main.set_xlabel("Time")
         axes_main.set_ylabel("Loss")
         # axes_main.set_title(f"Loss Time curve {models[group_ind]}")
         axes_main.legend()
@@ -234,9 +250,9 @@ def plot_top1_accuracy_curves(log_path):
     experiment_groups = [glob.glob(f"{log_path}/*{model}") for model in models]
 
     for group_ind, experiment_group in enumerate(experiment_groups):
-        fig, axes_main = plt.subplots(figsize=[10, 7])
-        axes_inner = plt.axes([0.65, 0.4, 0.3, 0.3])
-        axes_inner_range = list(range(0, 50))
+        fig, axes_main = plt.subplots()
+        # axes_inner = plt.axes([0.65, 0.4, 0.3, 0.3])
+        # axes_inner_range = list(range(0, 50))
 
         experiment_group.sort()
 
@@ -246,6 +262,7 @@ def plot_top1_accuracy_curves(log_path):
             higher_quant_level = None
             compression = None
             rank = None
+            dynamic_partition = None
 
             with open(os.path.join(experiment, "success.txt")) as file:
                 for line in file:
@@ -265,6 +282,9 @@ def plot_top1_accuracy_curves(log_path):
                     if line.startswith("rank"):
                         rank = line.split(": ")[-1]
 
+                    if line.startswith("dynamic_partition"):
+                        dynamic_partition = line.split(": ")[-1] == "True"
+
             if higher_quant_level:
                 label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
             elif quant_level:
@@ -273,6 +293,8 @@ def plot_top1_accuracy_curves(log_path):
                 label = " ".join([reducer, "K:", compression])
             elif rank:
                 label = " ".join([reducer, "Rank", rank])
+            elif dynamic_partition:
+                label = " ".join([reducer, "DP"])
             else:
                 label = reducer
 
@@ -288,35 +310,35 @@ def plot_top1_accuracy_curves(log_path):
                 np.arange(num_epochs),
                 mean_top1_accuracy - std_dev_top1_accuracy,
                 mean_top1_accuracy + std_dev_top1_accuracy,
-                alpha=0.5,
+                alpha=0.25,
             )
 
-            axes_inner.plot(axes_inner_range, mean_top1_accuracy[axes_inner_range])
-            axes_inner.fill_between(
-                axes_inner_range,
-                mean_top1_accuracy[axes_inner_range] - std_dev_top1_accuracy[axes_inner_range],
-                mean_top1_accuracy[axes_inner_range] + std_dev_top1_accuracy[axes_inner_range],
-                alpha=0,
-            )
+            # axes_inner.plot(axes_inner_range, mean_top1_accuracy[axes_inner_range])
+            # axes_inner.fill_between(
+            #     axes_inner_range,
+            #     mean_top1_accuracy[axes_inner_range] - std_dev_top1_accuracy[axes_inner_range],
+            #     mean_top1_accuracy[axes_inner_range] + std_dev_top1_accuracy[axes_inner_range],
+            #     alpha=0,
+            # )
 
             # axes_main.plot(top1_accuracy, label=label)
             # axes_inner.plot(axes_inner_range, top1_accuracy[axes_inner_range])
 
-        axes_inner.grid()
-        mark_inset(
-            axes_main,
-            axes_inner,
-            loc1a=1,
-            loc1b=1,
-            loc2a=2,
-            loc2b=2,
-            fc="none",
-            ec="0.5",
-        )
+        # axes_inner.grid()
+        # mark_inset(
+        #     axes_main,
+        #     axes_inner,
+        #     loc1a=1,
+        #     loc1b=1,
+        #     loc2a=2,
+        #     loc2b=2,
+        #     fc="none",
+        #     ec="0.5",
+        # )
 
-        axes_main.grid()
+        # axes_main.grid()
         axes_main.set_xlabel("Epochs")
-        axes_main.set_ylabel("Top 1 Accuracy (%)")
+        axes_main.set_ylabel("Test Accuracy (%)")
         # axes_main.set_title(f"Accuracy curve {models[group_ind]}")
         axes_main.legend()
 
@@ -330,9 +352,9 @@ def plot_top5_accuracy_curves(log_path):
     experiment_groups = [glob.glob(f"{log_path}/*{model}") for model in models]
 
     for group_ind, experiment_group in enumerate(experiment_groups):
-        fig, axes_main = plt.subplots(figsize=[10, 7])
-        axes_inner = plt.axes([0.65, 0.4, 0.3, 0.3])
-        axes_inner_range = list(range(0, 50))
+        fig, axes_main = plt.subplots()
+        # axes_inner = plt.axes([0.65, 0.4, 0.3, 0.3])
+        # axes_inner_range = list(range(0, 50))
 
         experiment_group.sort()
 
@@ -342,6 +364,7 @@ def plot_top5_accuracy_curves(log_path):
             higher_quant_level = None
             compression = None
             rank = None
+            dynamic_partition = None
 
             with open(os.path.join(experiment, "success.txt")) as file:
                 for line in file:
@@ -361,6 +384,9 @@ def plot_top5_accuracy_curves(log_path):
                     if line.startswith("rank"):
                         rank = line.split(": ")[-1]
 
+                    if line.startswith("dynamic_partition"):
+                        dynamic_partition = line.split(": ")[-1] == "True"
+
             if higher_quant_level:
                 label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
             elif quant_level:
@@ -369,6 +395,8 @@ def plot_top5_accuracy_curves(log_path):
                 label = " ".join([reducer, "K:", compression])
             elif rank:
                 label = " ".join([reducer, "Rank", rank])
+            elif dynamic_partition:
+                label = " ".join([reducer, "DP"])
             else:
                 label = reducer
 
@@ -384,35 +412,35 @@ def plot_top5_accuracy_curves(log_path):
                 np.arange(num_epochs),
                 mean_top5_accuracy - std_dev_top5_accuracy,
                 mean_top5_accuracy + std_dev_top5_accuracy,
-                alpha=0.5,
+                alpha=0.25,
             )
 
-            axes_inner.plot(axes_inner_range, mean_top5_accuracy[axes_inner_range])
-            axes_inner.fill_between(
-                axes_inner_range,
-                mean_top5_accuracy[axes_inner_range] - std_dev_top5_accuracy[axes_inner_range],
-                mean_top5_accuracy[axes_inner_range] + std_dev_top5_accuracy[axes_inner_range],
-                alpha=0,
-            )
+            # axes_inner.plot(axes_inner_range, mean_top5_accuracy[axes_inner_range])
+            # axes_inner.fill_between(
+            #     axes_inner_range,
+            #     mean_top5_accuracy[axes_inner_range] - std_dev_top5_accuracy[axes_inner_range],
+            #     mean_top5_accuracy[axes_inner_range] + std_dev_top5_accuracy[axes_inner_range],
+            #     alpha=0,
+            # )
 
             # axes_main.plot(top5_accuracy, label=label)
             # axes_inner.plot(axes_inner_range, top5_accuracy[axes_inner_range])
 
-        axes_inner.grid()
-        mark_inset(
-            axes_main,
-            axes_inner,
-            loc1a=1,
-            loc1b=1,
-            loc2a=2,
-            loc2b=2,
-            fc="none",
-            ec="0.5",
-        )
+        # axes_inner.grid()
+        # mark_inset(
+        #     axes_main,
+        #     axes_inner,
+        #     loc1a=1,
+        #     loc1b=1,
+        #     loc2a=2,
+        #     loc2b=2,
+        #     fc="none",
+        #     ec="0.5",
+        # )
 
-        axes_main.grid()
+        # axes_main.grid()
         axes_main.set_xlabel("Epochs")
-        axes_main.set_ylabel("Top 5 Accuracy (%)")
+        axes_main.set_ylabel("Test Accuracy (%)")
         # axes_main.set_title(f"Accuracy curve {models[group_ind]}")
         axes_main.legend()
 
@@ -426,9 +454,9 @@ def plot_top1_accuracy_time_curves(log_path):
     experiment_groups = [glob.glob(f"{log_path}/*{model}") for model in models]
 
     for group_ind, experiment_group in enumerate(experiment_groups):
-        fig, axes_main = plt.subplots(figsize=[10, 7])
-        axes_inner = plt.axes([0.65, 0.4, 0.3, 0.3])
-        axes_inner_range = list(range(0, 50))
+        fig, axes_main = plt.subplots()
+        # axes_inner = plt.axes([0.65, 0.4, 0.3, 0.3])
+        # axes_inner_range = list(range(0, 50))
 
         experiment_group.sort()
 
@@ -438,6 +466,7 @@ def plot_top1_accuracy_time_curves(log_path):
             higher_quant_level = None
             compression = None
             rank = None
+            dynamic_partition = None
 
             with open(os.path.join(experiment, "success.txt")) as file:
                 for line in file:
@@ -457,6 +486,9 @@ def plot_top1_accuracy_time_curves(log_path):
                     if line.startswith("rank"):
                         rank = line.split(": ")[-1]
 
+                    if line.startswith("dynamic_partition"):
+                        dynamic_partition = line.split(": ")[-1] == "True"
+
             if higher_quant_level:
                 label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
             elif quant_level:
@@ -465,6 +497,8 @@ def plot_top1_accuracy_time_curves(log_path):
                 label = " ".join([reducer, "K:", compression])
             elif rank:
                 label = " ".join([reducer, "Rank", rank])
+            elif dynamic_partition:
+                label = " ".join([reducer, "DP"])
             else:
                 label = reducer
 
@@ -486,35 +520,35 @@ def plot_top1_accuracy_time_curves(log_path):
                 time,
                 mean_top1_accuracy - std_dev_top1_accuracy,
                 mean_top1_accuracy + std_dev_top1_accuracy,
-                alpha=0.5,
+                alpha=0.25,
             )
 
-            axes_inner.plot(time[axes_inner_range], mean_top1_accuracy[axes_inner_range])
-            axes_inner.fill_between(
-                time[axes_inner_range],
-                mean_top1_accuracy[axes_inner_range] - std_dev_top1_accuracy[axes_inner_range],
-                mean_top1_accuracy[axes_inner_range] + std_dev_top1_accuracy[axes_inner_range],
-                alpha=0,
-            )
+            # axes_inner.plot(time[axes_inner_range], mean_top1_accuracy[axes_inner_range])
+            # axes_inner.fill_between(
+            #     time[axes_inner_range],
+            #     mean_top1_accuracy[axes_inner_range] - std_dev_top1_accuracy[axes_inner_range],
+            #     mean_top1_accuracy[axes_inner_range] + std_dev_top1_accuracy[axes_inner_range],
+            #     alpha=0,
+            # )
 
             # axes_main.plot(time, top1_accuracy, label=label)
             # axes_inner.plot(time[axes_inner_range], top1_accuracy[axes_inner_range])
 
-        axes_inner.grid()
-        mark_inset(
-            axes_main,
-            axes_inner,
-            loc1a=1,
-            loc1b=1,
-            loc2a=2,
-            loc2b=2,
-            fc="none",
-            ec="0.5",
-        )
+        # axes_inner.grid()
+        # mark_inset(
+        #     axes_main,
+        #     axes_inner,
+        #     loc1a=1,
+        #     loc1b=1,
+        #     loc2a=2,
+        #     loc2b=2,
+        #     fc="none",
+        #     ec="0.5",
+        # )
 
-        axes_main.grid()
+        # axes_main.grid()
         axes_main.set_xlabel("Time (sec)")
-        axes_main.set_ylabel("Top 1 Accuracy (%)")
+        axes_main.set_ylabel("Test Accuracy (%)")
         # axes_main.set_title(f"Accuracy Time curve {models[group_ind]}")
         axes_main.legend()
 
@@ -593,7 +627,7 @@ def plot_time_breakdown(log_path):
 
     models = ["ResNet50", "VGG16"]
 
-    [plt.figure(num=ind, figsize=[10, 7]) for ind in range(len(models))]
+    [plt.figure(num=ind) for ind in range(len(models))]
     experiment_groups = [glob.glob(f"{log_path}/*{model}") for model in models]
 
     events = np.arange(len(time_labels))
@@ -611,6 +645,7 @@ def plot_time_breakdown(log_path):
             higher_quant_level = None
             compression = None
             rank = None
+            dynamic_partition = None
 
             with open(os.path.join(experiment, "success.txt")) as file:
                 for line in file:
@@ -630,6 +665,9 @@ def plot_time_breakdown(log_path):
                     if line.startswith("rank"):
                         rank = line.split(": ")[-1]
 
+                    if line.startswith("dynamic_partition"):
+                        dynamic_partition = line.split(": ")[-1] == "True"
+
                 if higher_quant_level:
                     label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
                 elif quant_level:
@@ -638,6 +676,8 @@ def plot_time_breakdown(log_path):
                     label = " ".join([reducer, "K:", compression])
                 elif rank:
                     label = " ".join([reducer, "Rank", rank])
+                elif dynamic_partition:
+                    label = " ".join([reducer, "DP"])
                 else:
                     label = reducer
 
@@ -651,9 +691,10 @@ def plot_time_breakdown(log_path):
                 label=label,
             )
 
-        plt.grid()
-        plt.xticks(events, time_labels)
-        plt.ylabel("Average time")
+        # plt.grid()
+        time_labels_axis = [time_label.split(".")[-1] for time_label in time_labels]
+        plt.xticks(events, time_labels_axis)
+        plt.ylabel("Average Time (sec)")
         # plt.title(f"Time breakdown {models[group_ind]}")
         plt.legend()
         plt.tight_layout()
@@ -691,6 +732,7 @@ def plot_time_scalability(log_path):
                 compression = None
                 rank = None
                 num_epochs = None
+                dynamic_partition = None
 
                 with open(os.path.join(experiment, "success.txt")) as file:
                     for line in file:
@@ -713,6 +755,9 @@ def plot_time_scalability(log_path):
                         if line.startswith("rank"):
                             rank = line.split(": ")[-1]
 
+                    if line.startswith("dynamic_partition"):
+                        dynamic_partition = line.split(": ")[-1] == "True"
+
                     if higher_quant_level:
                         label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
                     elif quant_level:
@@ -721,6 +766,8 @@ def plot_time_scalability(log_path):
                         label = " ".join([reducer, "K:", compression])
                     elif rank:
                         label = " ".join([reducer, "Rank", rank])
+                    elif dynamic_partition:
+                        label = " ".join([reducer, "DP"])
                     else:
                         label = reducer
 
@@ -737,7 +784,7 @@ def plot_time_scalability(log_path):
             time_dfs[models[group_ind]] = pd.DataFrame(time_results, index=compressor_ind_map.keys())
 
         for df_key in time_dfs:
-            plt.figure(figsize=[10, 7])
+            plt.figure()
             time_df = time_dfs[df_key]
             num_compressors = len(time_df) - 1
 
@@ -750,9 +797,9 @@ def plot_time_scalability(log_path):
                     label=label,
                 )
 
-            plt.grid()
+            # plt.grid()
             plt.xticks(events, GPUs)
-            plt.ylabel("Time per epoch")
+            plt.ylabel("Time per Epoch (sec)")
             # plt.title(f"Time Scalability {df_key} {instance}")
             plt.legend()
             plt.tight_layout()
@@ -789,6 +836,7 @@ def plot_throughput_scalability(log_path):
                 higher_quant_level = None
                 compression = None
                 rank = None
+                dynamic_partition = None
 
                 with open(os.path.join(experiment, "success.txt")) as file:
                     for line in file:
@@ -805,6 +853,9 @@ def plot_throughput_scalability(log_path):
                         if line.startswith("compression"):
                             compression = line.split(": ")[-1]
 
+                    if line.startswith("dynamic_partition"):
+                        dynamic_partition = line.split(": ")[-1] == "True"
+
                     if line.startswith("rank"):
                         rank = line.split(": ")[-1]
 
@@ -816,6 +867,8 @@ def plot_throughput_scalability(log_path):
                         label = " ".join([reducer, "K:", compression])
                     elif rank:
                         label = " ".join([reducer, "Rank", rank])
+                    elif dynamic_partition:
+                        label = " ".join([reducer, "DP"])
                     else:
                         label = reducer
 
@@ -833,7 +886,7 @@ def plot_throughput_scalability(log_path):
             throughput_dfs[models[group_ind]] = pd.DataFrame(throughput_results, index=compressor_ind_map.keys())
 
         for df_key in throughput_dfs:
-            plt.figure(figsize=[10, 7])
+            plt.figure()
             throughput_df = throughput_dfs[df_key]
             num_compressors = len(throughput_df) - 1
 
@@ -846,7 +899,7 @@ def plot_throughput_scalability(log_path):
                     label=label,
                 )
 
-            plt.grid()
+            # plt.grid()
             plt.xticks(events, GPUs)
             plt.ylabel("Images per sec")
             # plt.title(f"Throughput Scalability {df_key} {instance}")
@@ -1254,7 +1307,7 @@ def plot_process_times(log_path):
                             files.sort()
 
                             for file in files:
-                                worker_type = file.split("/")[5]
+                                worker_type = file.split("/")[4]
 
                                 with open(file) as jsonfile:
                                     json_data = json.load(jsonfile)
@@ -1276,7 +1329,7 @@ def plot_process_times(log_path):
                                 # plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
                                 plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
 
-                                from matplotlib.ticker import FuncFormatter
+                                # from matplotlib.ticker import FuncFormatter
 
                                 # plt.gca().get_xaxis().set_major_formatter(
                                 #     FuncFormatter(lambda x, p: format(int(x / batch_avg_time * 100), ","))
@@ -1322,7 +1375,7 @@ def plot_process_times_histogram(log_path):
                             files.sort()
 
                             for file in files:
-                                worker_type = file.split("/")[5]
+                                worker_type = file.split("/")[4]
 
                                 with open(file) as jsonfile:
                                     json_data = json.load(jsonfile)
@@ -1536,8 +1589,8 @@ def plot_performance_modelling(log_path):
 
     batch_size = 128
     inter_gpu_bw = 200 * 1024
-    gpu_cpu_bw = 5 * 1024
-    network_latency = 2.5e-3
+    gpu_cpu_bw = 11 * 1024
+    network_latency = 9e-3
     network_bw = 1 * 1024 / 8
     num_gpu_per_node = 4
 
@@ -1563,6 +1616,7 @@ def plot_performance_modelling(log_path):
                 higher_quant_level = None
                 compression = None
                 rank = None
+                dynamic_partition = None
 
                 with open(os.path.join(experiment, "success.txt")) as file:
                     for line in file:
@@ -1586,14 +1640,21 @@ def plot_performance_modelling(log_path):
                         if line.startswith("rank"):
                             rank = line.split(": ")[-1]
 
+                    if line.startswith("dynamic_partition"):
+                        dynamic_partition = line.split(": ")[-1] == "True"
+
                     if higher_quant_level:
-                        label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
+                        # label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
+                        label = " ".join([reducer])
                     elif quant_level:
-                        label = " ".join([reducer, quant_level, "bits"])
+                        # label = " ".join([reducer, quant_level, "bits"])
+                        label = " ".join([reducer])
                     elif compression:
                         label = " ".join([reducer, "K:", compression])
                     elif rank:
                         label = " ".join([reducer, "Rank", rank])
+                    elif dynamic_partition:
+                        label = " ".join([reducer, "DP"])
                     else:
                         label = reducer
 
@@ -1618,10 +1679,16 @@ def plot_performance_modelling(log_path):
                 elif label_dict["QSGDMaxNormTwoScaleReducer"] in label:
                     gradient_size /= 2
                 elif label_dict["GlobalRandKMaxNormReducer"] in label:
-                    gradient_size *= 1 / 2000
+                    if architecture == "ResNet50":
+                        gradient_size *= 10000 / 23520842
+                    elif architecture == "VGG16":
+                        gradient_size *= 10000 / 14728266
                     gradient_size /= 4
                 elif label_dict["GlobalRandKMaxNormTwoScaleReducer"] in label:
-                    gradient_size *= 1 / 2000
+                    if architecture == "ResNet50":
+                        gradient_size *= 10000 / 23520842
+                    elif architecture == "VGG16":
+                        gradient_size *= 10000 / 14728266
                     gradient_size /= 2
                 else:
                     raise ValueError("Method undefined")
@@ -1644,8 +1711,8 @@ def plot_performance_modelling(log_path):
             throughput_dfs[models[group_ind]] = pd.DataFrame(throughput_results, index=compressor_ind_map.keys())
 
         for df_key in throughput_dfs:
-            fig, axes_main = plt.subplots(figsize=[10, 7])
-            axes_inner = plt.axes([0.175, 0.3, 0.3, 0.3])
+            fig, axes_main = plt.subplots()
+            axes_inner = plt.axes([0.25, 0.35, 0.3, 0.3])
             axes_inner_range = list(range(0, 4))
 
             throughput_df = throughput_dfs[df_key]
@@ -1660,7 +1727,7 @@ def plot_performance_modelling(log_path):
                     label=label,
                 )
 
-            INNER_GPUs = 4
+            INNER_GPUs = 5
             for ind, (label, values) in enumerate(throughput_df.iterrows()):
                 axes_inner.bar(
                         events[:INNER_GPUs] + (ind - num_compressors / 2) * width,
@@ -1668,8 +1735,9 @@ def plot_performance_modelling(log_path):
                         width,
                         label=label,
                     )
-            axes_inner.grid()
-            axes_main.set_xticks(events[:INNER_GPUs], GPUs[:INNER_GPUs])
+            # axes_inner.grid()
+            axes_inner.set_xticks(events[:INNER_GPUs])
+            axes_inner.set_xticklabels(GPUs[:INNER_GPUs])
             mark_inset(
                 axes_main,
                 axes_inner,
@@ -1681,8 +1749,9 @@ def plot_performance_modelling(log_path):
                 ec="0.5",
             )
 
-            axes_main.grid()
-            axes_main.set_xticks(events, GPUs)
+            # axes_main.grid()
+            axes_main.set_xticks(events)
+            axes_main.set_xticklabels(GPUs)
             axes_main.set_ylabel("Images per sec")
             axes_main.set_xlabel("Number of GPUs")
             # axes_main.set_title(f"Performance Modelling {df_key} {instance}")
@@ -1697,13 +1766,15 @@ if __name__ == "__main__":
     root_log_path = "./logs/plot_logs/"
 
     plot_loss_curves(os.path.join(root_log_path, "convergence"))
-    plot_loss_time_curves(os.path.join(root_log_path, "convergence"))
-    plot_top1_accuracy_curves(os.path.join(root_log_path, "convergence"))
+    # plot_loss_time_curves(os.path.join(root_log_path, "convergence"))
+    # plot_top1_accuracy_curves(os.path.join(root_log_path, "convergence"))
     # plot_top1_accuracy_time_curves(os.path.join(root_log_path, "convergence"))
     # plot_top5_accuracy_curves(os.path.join(root_log_path, "convergence"))
+
     # plot_time_breakdown(os.path.join(root_log_path, "time_breakdown"))
     # plot_time_scalability(os.path.join(root_log_path, 'scalability'))
     # plot_throughput_scalability(os.path.join(root_log_path, 'scalability'))
+
     # plot_performance_modelling(os.path.join(root_log_path, "scalability"))
 
     # plot_process_times(os.path.join(root_log_path, 'process_times'))
