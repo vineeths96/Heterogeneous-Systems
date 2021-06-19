@@ -13,6 +13,7 @@ local_steps : 1
 delay_type : constant
 delay_constant : 0.02
 dynamic_partition : False
+enhance : False
 reducer : NoneAllReducer
 seed : 42
 log_verbosity : 2
