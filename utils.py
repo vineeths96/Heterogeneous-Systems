@@ -49,6 +49,7 @@ def plot_loss_curves(log_path):
             compression = None
             rank = None
             dynamic_partition = None
+            enhance = None
 
             with open(os.path.join(experiment, "success.txt")) as file:
                 for line in file:
@@ -71,6 +72,9 @@ def plot_loss_curves(log_path):
                     if line.startswith("dynamic_partition"):
                         dynamic_partition = line.split(": ")[-1] == "True"
 
+                    if line.startswith("enhance"):
+                        enhance = line.split(": ")[-1] == "True"
+
             if higher_quant_level:
                 label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
             elif quant_level:
@@ -79,10 +83,12 @@ def plot_loss_curves(log_path):
                 label = " ".join([reducer, "K:", compression])
             elif rank:
                 label = " ".join([reducer, "Rank", rank])
+            elif dynamic_partition and enhance:
+                label = "EDP-SGD"
             elif dynamic_partition:
-                label = " ".join([reducer, "DP"])
+                label = "DP-SGD"
             else:
-                label = reducer
+                label = "Sync-SGD"
 
             log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
             loss = log_dict[()].get("train_loss")
@@ -153,6 +159,7 @@ def plot_loss_time_curves(log_path):
             compression = None
             rank = None
             dynamic_partition = None
+            enhance = None
 
             with open(os.path.join(experiment, "success.txt")) as file:
                 for line in file:
@@ -175,6 +182,9 @@ def plot_loss_time_curves(log_path):
                     if line.startswith("dynamic_partition"):
                         dynamic_partition = line.split(": ")[-1] == "True"
 
+                    if line.startswith("enhance"):
+                        enhance = line.split(": ")[-1] == "True"
+
             if higher_quant_level:
                 label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
             elif quant_level:
@@ -183,10 +193,12 @@ def plot_loss_time_curves(log_path):
                 label = " ".join([reducer, "K:", compression])
             elif rank:
                 label = " ".join([reducer, "Rank", rank])
+            elif dynamic_partition and enhance:
+                label = "EDP-SGD"
             elif dynamic_partition:
-                label = " ".join([reducer, "DP"])
+                label = "DP-SGD"
             else:
-                label = reducer
+                label = "Sync-SGD"
 
             log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
             loss = log_dict[()].get("train_loss")
@@ -263,6 +275,7 @@ def plot_top1_accuracy_curves(log_path):
             compression = None
             rank = None
             dynamic_partition = None
+            enhance = None
 
             with open(os.path.join(experiment, "success.txt")) as file:
                 for line in file:
@@ -285,6 +298,9 @@ def plot_top1_accuracy_curves(log_path):
                     if line.startswith("dynamic_partition"):
                         dynamic_partition = line.split(": ")[-1] == "True"
 
+                    if line.startswith("enhance"):
+                        enhance = line.split(": ")[-1] == "True"
+
             if higher_quant_level:
                 label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
             elif quant_level:
@@ -293,10 +309,12 @@ def plot_top1_accuracy_curves(log_path):
                 label = " ".join([reducer, "K:", compression])
             elif rank:
                 label = " ".join([reducer, "Rank", rank])
+            elif dynamic_partition and enhance:
+                label = "EDP-SGD"
             elif dynamic_partition:
-                label = " ".join([reducer, "DP"])
+                label = "DP-SGD"
             else:
-                label = reducer
+                label = "Sync-SGD"
 
             log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
             top1_accuracy = log_dict[()].get("test_top1_accuracy") * 100
@@ -365,6 +383,7 @@ def plot_top5_accuracy_curves(log_path):
             compression = None
             rank = None
             dynamic_partition = None
+            enhance = None
 
             with open(os.path.join(experiment, "success.txt")) as file:
                 for line in file:
@@ -387,6 +406,9 @@ def plot_top5_accuracy_curves(log_path):
                     if line.startswith("dynamic_partition"):
                         dynamic_partition = line.split(": ")[-1] == "True"
 
+                    if line.startswith("enhance"):
+                        enhance = line.split(": ")[-1] == "True"
+
             if higher_quant_level:
                 label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
             elif quant_level:
@@ -395,10 +417,12 @@ def plot_top5_accuracy_curves(log_path):
                 label = " ".join([reducer, "K:", compression])
             elif rank:
                 label = " ".join([reducer, "Rank", rank])
+            elif dynamic_partition and enhance:
+                label = "EDP-SGD"
             elif dynamic_partition:
-                label = " ".join([reducer, "DP"])
+                label = "DP-SGD"
             else:
-                label = reducer
+                label = "Sync-SGD"
 
             log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
             top5_accuracy = log_dict[()].get("test_top5_accuracy") * 100
@@ -467,6 +491,7 @@ def plot_top1_accuracy_time_curves(log_path):
             compression = None
             rank = None
             dynamic_partition = None
+            enhance = None
 
             with open(os.path.join(experiment, "success.txt")) as file:
                 for line in file:
@@ -489,6 +514,9 @@ def plot_top1_accuracy_time_curves(log_path):
                     if line.startswith("dynamic_partition"):
                         dynamic_partition = line.split(": ")[-1] == "True"
 
+                    if line.startswith("enhance"):
+                        enhance = line.split(": ")[-1] == "True"
+
             if higher_quant_level:
                 label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
             elif quant_level:
@@ -497,10 +525,12 @@ def plot_top1_accuracy_time_curves(log_path):
                 label = " ".join([reducer, "K:", compression])
             elif rank:
                 label = " ".join([reducer, "Rank", rank])
+            elif dynamic_partition and enhance:
+                label = "EDP-SGD"
             elif dynamic_partition:
-                label = " ".join([reducer, "DP"])
+                label = "DP-SGD"
             else:
-                label = reducer
+                label = "Sync-SGD"
 
             log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
             top1_accuracy = log_dict[()].get("test_top1_accuracy") * 100
@@ -631,7 +661,7 @@ def plot_time_breakdown(log_path):
     experiment_groups = [glob.glob(f"{log_path}/*{model}") for model in models]
 
     events = np.arange(len(time_labels))
-    width = 0.1
+    width = 0.25
 
     for group_ind, experiment_group in enumerate(experiment_groups):
         plt.figure(num=group_ind)
@@ -677,18 +707,23 @@ def plot_time_breakdown(log_path):
                 elif rank:
                     label = " ".join([reducer, "Rank", rank])
                 elif dynamic_partition:
-                    label = " ".join([reducer, "DP"])
+                    label = "DP-SGD"
                 else:
-                    label = reducer
+                    label = "Sync-SGD"
 
-            time_df = pd.read_json(os.path.join(experiment, "timer_summary_0.json")).loc["average_duration"]
+            data = json.load(open(os.path.join(experiment, "timer_summary_0.json")))
+            data.pop('reduce_times')
+            data.pop('process_times')
+            time_df = pd.DataFrame(data).loc["average_duration"]
             time_values = time_df[time_labels].values
+
+            worker = experiment.split("/")[-1].split('_')[0]
 
             plt.bar(
                 events + (ind - num_experiments / 2) * width,
                 time_values,
                 width,
-                label=label,
+                label=f"{label} {worker}",
             )
 
         # plt.grid()
@@ -1274,7 +1309,7 @@ def plot_heterogenous_AWS(log_path):
                         plt.show()
 
 
-def plot_process_times(log_path):
+def plot_process_times_AWS(log_path):
     models = {"ResNet50": 1, "VGG16": 2}
 
     instances = os.listdir(os.path.join(log_path))
@@ -1323,7 +1358,7 @@ def plot_process_times(log_path):
                                 xs = np.linspace(0, 1, 200)
                                 # density.covariance_factor = lambda: .25
                                 # density._compute_covariance()
-                                plt.plot(xs, density(xs), label=f"{compressor} - {worker_type}")
+                                plt.plot(xs, density(xs), label=f"Sync-SGD - {worker_type}")
                                 # plt.title(f"{model_name}")
 
                                 # plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
@@ -1336,13 +1371,13 @@ def plot_process_times(log_path):
                                 # )
 
                                 plt.legend()
-                                plt.xlabel("Batch Process Time")
+                                plt.xlabel("Batch Process Time (sec)")
                                 plt.ylabel("Probability")
                                 plt.savefig(f"./plots/process_times_{model_name}_{reducer}.svg")
                     plt.show()
 
 
-def plot_process_times_histogram(log_path):
+def plot_process_times_histogram_AWS(log_path):
     models = {"ResNet50": 1, "VGG16": 2}
 
     instances = os.listdir(os.path.join(log_path))
@@ -1391,19 +1426,115 @@ def plot_process_times_histogram(log_path):
                                 xs = np.linspace(0, 1, 200)
                                 # density.covariance_factor = lambda: .25
                                 # density._compute_covariance()
-                                plt.hist(data, 100, label=f"{compressor} - {worker_type}")
+                                plt.hist(data, 100, label=f"Sync-SGD - {worker_type}")
                                 # plt.title(f"{model_name}")
 
                                 plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
                                 plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
 
                                 plt.legend()
-                                plt.xlabel("Batch Process Time")
+                                plt.xlabel("Batch Process Time (sec)")
                                 plt.ylabel("Frequency")
                                 plt.savefig(
                                     f"./plots/process_times_histogram_{model_name}_{reducer}.svg"
                                 )
                     plt.show()
+
+
+def plot_process_times_histogram(log_path):
+    models = ["ResNet50", "VGG16"]
+    experiment_groups = [glob.glob(f"{log_path}/*{model}") for model in models]
+
+    for group_ind, experiment_group in enumerate(experiment_groups):
+        fig, axes_main = plt.subplots()
+        # axes_inner = plt.axes([0.65, 0.4, 0.3, 0.3])
+        # axes_inner_range = list(range(0, 50))
+
+        experiment_group.sort()
+
+        for ind, experiment in enumerate(experiment_group):
+            reducer = None
+            quant_level = None
+            higher_quant_level = None
+            compression = None
+            rank = None
+            dynamic_partition = None
+            enhance = None
+
+            with open(os.path.join(experiment, "success.txt")) as file:
+                for line in file:
+                    line = line.rstrip()
+                    if line.startswith("reducer"):
+                        reducer = label_dict[line.split(": ")[-1]]
+
+                    if line.startswith("quantization_level"):
+                        quant_level = line.split(": ")[-1]
+
+                    if line.startswith("higher_quantization_level"):
+                        higher_quant_level = line.split(": ")[-1]
+
+                    if line.startswith("compression"):
+                        compression = line.split(": ")[-1]
+
+                    if line.startswith("rank"):
+                        rank = line.split(": ")[-1]
+
+                    if line.startswith("dynamic_partition"):
+                        dynamic_partition = line.split(": ")[-1] == "True"
+
+                    if line.startswith("enhance"):
+                        enhance = line.split(": ")[-1] == "True"
+
+            if higher_quant_level:
+                label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
+            elif quant_level:
+                label = " ".join([reducer, quant_level, "bits"])
+            elif compression:
+                label = " ".join([reducer, "K:", compression])
+            elif rank:
+                label = " ".join([reducer, "Rank", rank])
+            elif dynamic_partition and enhance:
+                label = "EDP-SGD"
+            elif dynamic_partition:
+                label = "DP-SGD"
+            else:
+                label = "Sync-SGD"
+
+            model_name = experiment.split('_')[-1]
+
+            files = glob.glob(f"{experiment}/*.json")
+            files.sort()
+
+            for file in files:
+                worker_type = file.split("_")[-1].split('.')[0]
+
+                with open(file) as jsonfile:
+                    json_data = json.load(jsonfile)
+
+                batch_avg_time = json_data["batch"]["average_duration"]
+                process_times = json_data["mean_batch_process_times"]
+
+                from scipy.stats import gaussian_kde
+
+                data = process_times
+                density = gaussian_kde(data)
+
+                xs = np.linspace(0, 1, 200)
+                # density.covariance_factor = lambda: .25
+                # density._compute_covariance()
+                plt.hist(data, 100, label=f"{label} - Worker {worker_type}")
+                # plt.title(f"{model_name}")
+
+                plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
+                plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
+                plt.legend()
+                plt.xlabel("Batch Process Time (sec)")
+                plt.ylabel("Frequency")
+                plt.savefig(
+                    f"./plots/process_times_histogram_{model_name}_{dynamic_partition}_{reducer}.svg"
+                )
+            plt.show()
 
 
 def plot_histogram_heterogenous_AWS(log_path):
@@ -1765,7 +1896,7 @@ def plot_performance_modelling(log_path):
 if __name__ == "__main__":
     root_log_path = "./logs/plot_logs/"
 
-    plot_loss_curves(os.path.join(root_log_path, "convergence"))
+    # plot_loss_curves(os.path.join(root_log_path, "convergence"))
     # plot_loss_time_curves(os.path.join(root_log_path, "convergence"))
     # plot_top1_accuracy_curves(os.path.join(root_log_path, "convergence"))
     # plot_top1_accuracy_time_curves(os.path.join(root_log_path, "convergence"))
@@ -1777,7 +1908,8 @@ if __name__ == "__main__":
 
     # plot_performance_modelling(os.path.join(root_log_path, "scalability"))
 
-    # plot_process_times(os.path.join(root_log_path, 'process_times'))
+    # plot_process_times_AWS(os.path.join(root_log_path, 'process_times'))
+    # plot_process_times_histogram_AWS(os.path.join(root_log_path, 'process_times'))
     # plot_process_times_histogram(os.path.join(root_log_path, 'process_times'))
 
     # plot_time_per_batch_curves(os.path.join(root_log_path, "convergence"))
