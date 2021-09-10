@@ -62,7 +62,6 @@ class NoneAllReducer:
                 out[:] = 0.0
 
             for grad, out in zip(flat_grad, grad_out):
-                # TODO Average or Sum
                 grad = grad.to(self._device)
                 out.add_(other=grad, alpha=1 / self.n_workers)
 
