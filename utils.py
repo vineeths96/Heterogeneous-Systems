@@ -13,7 +13,15 @@ from mpl_toolkits.axes_grid1.inset_locator import (
 
 
 NUM_REPEATS = 5
-label_dict = {"NoneAllReducer": "AllReduce SGD", "QSGDMaxNormReducer": "QSGD-MN", "GlobalRandKMaxNormReducer": "GRandK-MN", "QSGDMaxNormTwoScaleReducer": "QSGD-MN-TS", "GlobalRandKMaxNormTwoScaleReducer": "GRandK-MN-TS", "RankKReducer": "PowerSGD"}
+label_dict = {
+    "NoneAllReducer": "AllReduce SGD",
+    "QSGDMaxNormReducer": "QSGD-MN",
+    "GlobalRandKMaxNormReducer": "GRandK-MN",
+    "QSGDMaxNormTwoScaleReducer": "QSGD-MN-TS",
+    "GlobalRandKMaxNormTwoScaleReducer": "GRandK-MN-TS",
+    "RankKReducer": "PowerSGD",
+}
+
 
 def mark_inset(parent_axes, inset_axes, loc1a=1, loc1b=1, loc2a=2, loc2b=2, **kwargs):
     rect = TransformedBbox(inset_axes.viewLim, parent_axes.transData)
@@ -247,7 +255,7 @@ def plot_loss_time_curves(log_path):
         # )
 
         # axes_main.grid()
-        axes_main.set_xlabel("Time")
+        axes_main.set_xlabel("Time (sec)")
         axes_main.set_ylabel("Loss")
         # axes_main.set_title(f"Loss Time curve {models[group_ind]}")
         axes_main.legend()
@@ -587,63 +595,6 @@ def plot_top1_accuracy_time_curves(log_path):
         plt.show()
 
 
-def plot_time_per_batch_curves(log_path):
-    models = ["ResNet50", "VGG16"]
-    experiment_groups = [glob.glob(f"{log_path}/*{model}") for model in models]
-
-    for group_ind, experiment_group in enumerate(experiment_groups):
-        plt.figure(figsize=[10, 7])
-
-        experiment_group.sort()
-
-        for ind, experiment in enumerate(experiment_group):
-            reducer = None
-            quant_level = None
-            higher_quant_level = None
-            compression = None
-
-            with open(os.path.join(experiment, "success.txt")) as file:
-                for line in file:
-                    line = line.rstrip()
-                    if line.startswith("reducer"):
-                        reducer = line.split(": ")[-1]
-
-                    if line.startswith("quantization_level"):
-                        quant_level = line.split(": ")[-1]
-
-                    if line.startswith("higher_quantization_level"):
-                        higher_quant_level = line.split(": ")[-1]
-
-                    if line.startswith("compression"):
-                        compression = line.split(": ")[-1]
-
-                if higher_quant_level:
-                    label = " ".join([reducer, quant_level, "&", higher_quant_level, "bits"])
-                elif quant_level:
-                    label = " ".join([reducer, quant_level, "bits"])
-                elif compression:
-                    label = " ".join([reducer, "K:", compression])
-                else:
-                    label = reducer
-
-            log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
-            time = log_dict[()].get("time")
-            epoch_time = np.zeros(len(time) - 1)
-
-            for ind in range(epoch_time.shape[0]):
-                epoch_time[ind] = time[ind + 1] - time[ind]
-
-            plt.plot(epoch_time, label=label)
-
-        plt.grid()
-        plt.xlabel("Epochs")
-        plt.ylabel("Average time")
-        plt.title(f"Average time curve {models[group_ind]}")
-        plt.legend()
-        plt.savefig(f"./plots/time_{models[group_ind]}.svg")
-        plt.show()
-
-
 def plot_time_breakdown(log_path):
     time_labels = [
         "batch",
@@ -712,12 +663,12 @@ def plot_time_breakdown(log_path):
                     label = "Sync-SGD"
 
             data = json.load(open(os.path.join(experiment, "timer_summary_0.json")))
-            data.pop('reduce_times')
-            data.pop('process_times')
+            data.pop("reduce_times")
+            data.pop("process_times")
             time_df = pd.DataFrame(data).loc["average_duration"]
             time_values = time_df[time_labels].values
 
-            worker = experiment.split("/")[-1].split('_')[0]
+            worker = experiment.split("/")[-1].split("_")[0]
 
             plt.bar(
                 events + (ind - num_experiments / 2) * width,
@@ -944,371 +895,6 @@ def plot_throughput_scalability(log_path):
             plt.show()
 
 
-def plot_waiting_times(log_path):
-    models = {"ResNet50": 1, "VGG16": 2}
-    instances = ["P3 Waiting Time"]  # , "P3 Waiting Time Multi Node"]
-
-    for instance in instances:
-        Hs = os.listdir(os.path.join(log_path, instance))
-
-        for H in Hs:
-            GPUs = os.listdir(os.path.join(log_path, instance, H))
-            GPUs.sort()
-
-            [plt.figure(ind) for _, ind in models.items()]
-            for GPU in GPUs:
-                files = glob.glob(f"{log_path}/{instance}/{H}/{GPU}/*.pkl")
-
-                for file in files:
-                    model_name = file.split("_")[-1].split(".")[0]
-                    plt.figure(models[model_name])
-
-                    with open(file, "rb") as file:
-                        waiting_time = pickle.load(file)
-
-                    from scipy.stats import gaussian_kde
-
-                    data = waiting_time[1:]
-                    density = gaussian_kde(data)
-
-                    if "Multi Node" in instance:
-                        xs = np.linspace(0, 2e-4, 200)
-                    else:
-                        xs = np.linspace(0, 5e-5, 200)
-
-                    # density.covariance_factor = lambda: .25
-                    # density._compute_covariance()
-                    plt.plot(xs, density(xs), label=GPU)
-                    plt.title(f"{model_name}_{instance}_{H}")
-
-                    plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
-                    plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
-
-                    plt.legend()
-                    plt.xlabel("Waiting Time")
-                    plt.ylabel("Probability")
-                    plt.grid()
-                    plt.savefig(f"./plots/waiting_times_{model_name}_{H}_{instance}.svg")
-                    plt.grid()
-
-            plt.show()
-
-
-def plot_waiting_times_AWS(log_path):
-    models = {"ResNet50": 1, "VGG16": 2}
-    instances = ["P3 Waiting Time"]  # , "P3 Waiting Time Multi Node"]
-
-    for instance in instances:
-        Hs = os.listdir(os.path.join(log_path, instance))
-        Hs.sort()
-
-        for reducer in [
-            "NoneAllReducer",
-            "QSGDMaxNormReducer",
-            "GlobalRandKMaxNormReducer",
-            "QSGDMaxNormTwoScaleReducer",
-            "GlobalRandKMaxNormTwoScaleReducer",
-        ]:
-            for H in Hs:
-                GPUs = os.listdir(os.path.join(log_path, instance, H))
-                GPUs.sort()
-
-                [plt.figure(ind) for _, ind in models.items()]
-                for GPU in GPUs:
-                    experiments = glob.glob(f"{log_path}/{instance}/{H}/{GPU}/*")
-                    experiments.sort()
-
-                    for experiment in experiments:
-                        with open(f"{experiment}/success.txt", "r") as success_file:
-                            for line in success_file:
-                                if line.startswith("reducer"):
-                                    compressor = line.split(":")[-1].strip()
-
-                                    if compressor == reducer:
-                                        model_name = experiment.split("_")[-1].split(".")[0]
-                                        plt.figure(models[model_name])
-
-                                        files = glob.glob(f"{experiment}/*.pkl")
-                                        files.sort()
-
-                                        for file in files:
-                                            worker_num = file.split("_")[-1].split(".")[0]
-
-                                            with open(file, "rb") as file:
-                                                waiting_time = pickle.load(file)
-
-                                            from scipy.stats import gaussian_kde
-
-                                            data = waiting_time[1:]
-                                            density = gaussian_kde(data)
-
-                                            if "Multi Node" in instance:
-                                                xs = np.linspace(0, 2e-4, 200)
-                                            else:
-                                                xs = np.linspace(0, 5e-5, 200)
-
-                                            # density.covariance_factor = lambda: .25
-                                            # density._compute_covariance()
-                                            plt.plot(xs, density(xs), label=f"{compressor} - {worker_num}")
-                                            plt.title(f"{model_name}_{instance}_{GPU}_{H}")
-
-                                            plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
-                                            plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
-
-                                            plt.legend()
-                                            plt.xlabel("Waiting Time")
-                                            plt.ylabel("Probability")
-                                            plt.savefig(
-                                                f"./plots/waiting_times_{model_name}_{H}_{instance}_{GPU}_{reducer}.svg"
-                                            )
-                                    plt.show()
-
-
-def plot_mean_variance_AWS(log_path, num_workers):
-    models = {"ResNet50": 1, "VGG16": 2}
-    instances = ["P3 Waiting Time"]  # , "P3 Waiting Time Multi Node"]
-
-    for instance in instances:
-        Hs = os.listdir(os.path.join(log_path, instance))
-        Hs.sort()
-
-        for reducer in [
-            "NoneAllReducer",
-            "QSGDMaxNormReducer",
-            "GlobalRandKMaxNormReducer",
-            "QSGDMaxNormTwoScaleReducer",
-            "GlobalRandKMaxNormTwoScaleReducer",
-        ]:
-            mean = {model: [] for model in models}
-            variance = {model: [] for model in models}
-
-            mean_MC = {model: [] for model in models}
-            variance_MC = {model: [] for model in models}
-
-            steps = []
-            [plt.figure(ind) for _, ind in models.items()]
-            for H in Hs:
-                steps.append(int(H.split("_")[-1]))
-                GPUs = os.listdir(os.path.join(log_path, instance, H))
-                GPUs.sort()
-
-                [plt.figure(ind) for _, ind in models.items()]
-                for GPU in GPUs:
-                    if GPU != f"{num_workers} GPU":
-                        print(f"Skip {GPU}")
-                        continue
-
-                    experiments = glob.glob(f"{log_path}/{instance}/{H}/{GPU}/*")
-                    experiments.sort()
-
-                    for experiment in experiments:
-                        with open(f"{experiment}/success.txt", "r") as success_file:
-                            for line in success_file:
-                                if line.startswith("reducer"):
-                                    compressor = line.split(":")[-1].strip()
-
-                                    if compressor == reducer:
-                                        model_name = experiment.split("_")[-1].split(".")[0]
-                                        plt.figure(models[model_name])
-
-                                        files = glob.glob(f"{experiment}/*.pkl")
-                                        files.sort()
-
-                                        worker_mean = []
-                                        worker_variance = []
-
-                                        for file in files:
-                                            worker_num = file.split("_")[-1].split(".")[0]
-
-                                            with open(file, "rb") as file:
-                                                waiting_time = pickle.load(file)
-
-                                            from scipy.stats import gaussian_kde
-
-                                            data = waiting_time[1:]
-                                            worker_mean.append(np.mean(data))
-                                            worker_variance.append(np.var(data))
-
-                                            n_samples = 1000000
-                                            density = gaussian_kde(data)
-                                            samples = density.resample(n_samples)
-
-                                            worker_mean_mc = samples.mean()
-                                            worker_variance_mc = samples.var()
-
-                                        mean[model_name].append(np.mean(worker_mean))
-                                        variance[model_name].append(np.mean(worker_variance))
-
-                                        mean_MC[model_name].append(np.mean(worker_mean_mc))
-                                        variance_MC[model_name].append(np.mean(worker_variance_mc))
-
-            for model in models:
-                plt.figure()
-                plt.plot(steps, mean[model], label="Empirical")
-                # plt.plot(steps, mean_MC[model], label='Monte Carlo')
-                plt.title(f"Mean_WT_{model}_{reducer}")
-                plt.legend()
-                plt.ylabel("Waiting Time")
-                plt.xlabel("H: Local steps")
-                plt.savefig(f"./plots/mean_waiting_time_{model}_{num_workers} GPU_{instance}_{reducer}.svg")
-                plt.show()
-
-                plt.figure()
-                plt.plot(steps, variance[model], label="Empirical")
-                # plt.plot(steps, variance_MC[model], label='Monte Carlo')
-                plt.title(f"Variance_WT_{model}_{reducer}")
-                plt.legend()
-                plt.ylabel("Waiting Time")
-                plt.xlabel("H: Local steps")
-                plt.savefig(f"./plots/var_waiting_times_{model}_{num_workers} GPU_{instance}_{reducer}.svg")
-                plt.show()
-
-
-def plot_reduce_times_AWS(log_path):
-    models = {"ResNet50": 1, "VGG16": 2}
-    instances = ["P3 Waiting Time"]  # , "P3 Waiting Time Multi Node"]
-
-    for instance in instances:
-        Hs = os.listdir(os.path.join(log_path, instance))
-        Hs.sort()
-
-        for reducer in [
-            "NoneAllReducer",
-            "QSGDMaxNormReducer",
-            "GlobalRandKMaxNormReducer",
-            "QSGDMaxNormTwoScaleReducer",
-            "GlobalRandKMaxNormTwoScaleReducer",
-        ]:
-            for H in Hs:
-                GPUs = os.listdir(os.path.join(log_path, instance, H))
-                GPUs.sort()
-
-                [plt.figure(ind) for _, ind in models.items()]
-                for GPU in GPUs:
-                    experiments = glob.glob(f"{log_path}/{instance}/{H}/{GPU}/*")
-                    experiments.sort()
-
-                    for experiment in experiments:
-                        with open(f"{experiment}/success.txt", "r") as success_file:
-                            for line in success_file:
-                                if line.startswith("reducer"):
-                                    compressor = line.split(":")[-1].strip()
-
-                                    if compressor == reducer:
-                                        model_name = experiment.split("_")[-1].split(".")[0]
-                                        plt.figure(models[model_name])
-
-                                        files = glob.glob(f"{experiment}/*.json")
-                                        files.sort()
-
-                                        for file in files:
-                                            worker_num = file.split("_")[-1].split(".")[0]
-
-                                            with open(file) as jsonfile:
-                                                json_data = json.load(jsonfile)
-
-                                            waiting_time = json_data["reduce_times"]
-
-                                            from scipy.stats import gaussian_kde
-
-                                            data = waiting_time[1:]
-                                            density = gaussian_kde(data)
-
-                                            if "Multi Node" in instance:
-                                                xs = np.linspace(0, 2e-4, 200)
-                                            else:
-                                                xs = np.linspace(0, 2e-2 * (1 + int(H.split("_")[-1]) // 5), 200)
-
-                                            # density.covariance_factor = lambda: .25
-                                            # density._compute_covariance()
-                                            plt.plot(xs, density(xs), label=f"{compressor} - {worker_num}")
-                                            plt.title(f"{model_name}_{instance}_{GPU}_{H}")
-
-                                            plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
-                                            plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
-
-                                            plt.legend()
-                                            plt.xlabel("Reduce Time")
-                                            plt.ylabel("Probability")
-                                            plt.savefig(
-                                                f"./plots/reduce_times_{model_name}_{H}_{instance}_{GPU}_{reducer}.svg"
-                                            )
-                                    plt.show()
-
-
-def plot_heterogenous_AWS(log_path):
-    models = {"ResNet50": 1, "VGG16": 2}
-    dynamic_batches = [
-        "NAR",
-        "NAR_128+8_128",
-    ]  # , "NAR_128+16_128", "NAR_128+32_128", "NAR_128+64_128", "NAR_128+128_128"]
-
-    for dynamic_batch in dynamic_batches:
-        instances = os.listdir(os.path.join(log_path, dynamic_batch))
-        instances.sort()
-
-        for reducer in [
-            "NoneAllReducer",
-            "QSGDMaxNormReducer",
-            "GlobalRandKMaxNormReducer",
-            "QSGDMaxNormTwoScaleReducer",
-            "GlobalRandKMaxNormTwoScaleReducer",
-        ]:
-            experiments_P2 = glob.glob(f"{log_path}/{dynamic_batch}/P2/*")
-            experiments_P2.sort()
-            experiments_P3 = glob.glob(f"{log_path}/{dynamic_batch}/P3/*")
-            experiments_P3.sort()
-
-            for experiment_P2, experiment_P3 in zip(experiments_P2, experiments_P3):
-                with open(f"{experiment_P2}/success.txt", "r") as success_file:
-                    for line in success_file:
-                        if line.startswith("reducer"):
-                            compressor = line.split(":")[-1].strip()
-
-                            if compressor == reducer:
-                                model_name = experiment_P3.split("_")[-1].split(".")[0]
-
-                                plt.figure(models[model_name])
-
-                                files = glob.glob(f"{log_path}/{dynamic_batch}/*/*{model_name}/*.json")
-                                files.sort()
-
-                                for file in files:
-                                    worker_type = file.split("/")[5]
-
-                                    with open(file) as jsonfile:
-                                        json_data = json.load(jsonfile)
-
-                                    batch_avg_time = json_data["batch"]["average_duration"]
-                                    waiting_time = json_data["reduce_times"]
-
-                                    from scipy.stats import gaussian_kde
-
-                                    data = waiting_time[1:]
-                                    density = gaussian_kde(data)
-
-                                    xs = np.linspace(0, 1, 200)
-                                    # density.covariance_factor = lambda: .25
-                                    # density._compute_covariance()
-                                    plt.plot(xs, density(xs), label=f"{compressor} - {worker_type}")
-                                    plt.title(f"{model_name}_{dynamic_batch}")
-
-                                    # plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
-                                    plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
-
-                                    from matplotlib.ticker import FuncFormatter
-
-                                    plt.gca().get_xaxis().set_major_formatter(
-                                        FuncFormatter(lambda x, p: format(int(x / batch_avg_time * 100), ","))
-                                    )
-
-                                    plt.legend()
-                                    plt.xlabel("Reduce Time")
-                                    plt.ylabel("Probability")
-                                    plt.savefig(f"./plots/reduce_times_{model_name}_{dynamic_batch}_{reducer}.svg")
-                        plt.show()
-
-
 def plot_process_times_AWS(log_path):
     models = {"ResNet50": 1, "VGG16": 2}
 
@@ -1435,9 +1021,7 @@ def plot_process_times_histogram_AWS(log_path):
                                 plt.legend()
                                 plt.xlabel("Batch Process Time (sec)")
                                 plt.ylabel("Frequency")
-                                plt.savefig(
-                                    f"./plots/process_times_histogram_{model_name}_{reducer}.svg"
-                                )
+                                plt.savefig(f"./plots/process_times_histogram_{model_name}_{reducer}.svg")
                     plt.show()
 
 
@@ -1500,13 +1084,13 @@ def plot_process_times_histogram(log_path):
             else:
                 label = "Sync-SGD"
 
-            model_name = experiment.split('_')[-1]
+            model_name = experiment.split("_")[-1]
 
             files = glob.glob(f"{experiment}/*.json")
             files.sort()
 
             for file in files:
-                worker_type = file.split("_")[-1].split('.')[0]
+                worker_type = file.split("_")[-1].split(".")[0]
 
                 with open(file) as jsonfile:
                     json_data = json.load(jsonfile)
@@ -1531,392 +1115,23 @@ def plot_process_times_histogram(log_path):
                 plt.legend()
                 plt.xlabel("Batch Process Time (sec)")
                 plt.ylabel("Frequency")
-                plt.savefig(
-                    f"./plots/process_times_histogram_{model_name}_{dynamic_partition}_{reducer}.svg"
-                )
-            plt.show()
-
-
-def plot_histogram_heterogenous_AWS(log_path):
-    models = {"ResNet50": 1, "VGG16": 2}
-    dynamic_batches = ["NAR", "NAR_128+8_128", "NAR_128+16_128", "NAR_128+32_128", "NAR_128+64_128", "NAR_128+128_128"]
-
-    for dynamic_batch in dynamic_batches:
-        instances = os.listdir(os.path.join(log_path, dynamic_batch))
-        instances.sort()
-
-        for reducer in [
-            "NoneAllReducer",
-            "QSGDMaxNormReducer",
-            "GlobalRandKMaxNormReducer",
-            "QSGDMaxNormTwoScaleReducer",
-            "GlobalRandKMaxNormTwoScaleReducer",
-        ]:
-            experiments_P2 = glob.glob(f"{log_path}/{dynamic_batch}/P2/*")
-            experiments_P2.sort()
-            experiments_P3 = glob.glob(f"{log_path}/{dynamic_batch}/P3/*")
-            experiments_P3.sort()
-
-            for experiment_P2, experiment_P3 in zip(experiments_P2, experiments_P3):
-                with open(f"{experiment_P2}/success.txt", "r") as success_file:
-                    for line in success_file:
-                        if line.startswith("reducer"):
-                            compressor = line.split(":")[-1].strip()
-
-                            if compressor == reducer:
-                                model_name = experiment_P3.split("_")[-1].split(".")[0]
-
-                                plt.figure(models[model_name])
-
-                                files = glob.glob(f"{log_path}/{dynamic_batch}/*/*{model_name}/*.json")
-                                files.sort()
-
-                                for file in files:
-                                    worker_type = file.split("/")[5]
-
-                                    with open(file) as jsonfile:
-                                        json_data = json.load(jsonfile)
-
-                                    waiting_time = json_data["reduce_times"]
-
-                                    from scipy.stats import gaussian_kde
-
-                                    data = waiting_time[1:]
-                                    density = gaussian_kde(data)
-
-                                    xs = np.linspace(0, 1, 200)
-                                    # density.covariance_factor = lambda: .25
-                                    # density._compute_covariance()
-                                    plt.hist(data, 50, label=f"{compressor} - {worker_type}")
-                                    plt.title(f"{model_name}_{dynamic_batch}")
-
-                                    plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
-                                    plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
-
-                                    plt.legend()
-                                    plt.xlabel("Reduce Time")
-                                    plt.ylabel("Probability")
-                                    plt.savefig(
-                                        f"./plots/reduce_times_histogram_{model_name}_{dynamic_batch}_{reducer}.svg"
-                                    )
-                        plt.show()
-
-
-def plot_mean_variance_reduce_time_AWS(log_path, num_workers):
-    models = {"ResNet50": 1, "VGG16": 2}
-    instances = ["P3 Waiting Time"]  # , "P3 Waiting Time Multi Node"]
-
-    for instance in instances:
-        Hs = os.listdir(os.path.join(log_path, instance))
-        Hs.sort()
-
-        for reducer in [
-            "NoneAllReducer",
-            "QSGDMaxNormReducer",
-            "GlobalRandKMaxNormReducer",
-            "QSGDMaxNormTwoScaleReducer",
-            "GlobalRandKMaxNormTwoScaleReducer",
-        ]:
-            mean = {model: {} for worker in range(num_workers) for model in models}
-            variance = {model: {} for worker in range(num_workers) for model in models}
-
-            mean_MC = {model: [] for model in models}
-            variance_MC = {model: [] for model in models}
-
-            steps = []
-            [plt.figure(ind) for _, ind in models.items()]
-            for H in Hs:
-                steps.append(int(H.split("_")[-1]))
-                GPUs = os.listdir(os.path.join(log_path, instance, H))
-                GPUs.sort()
-
-                [plt.figure(ind) for _, ind in models.items()]
-                for GPU in GPUs:
-                    if GPU != f"{num_workers} GPU":
-                        print(f"Skip {GPU}")
-                        continue
-
-                    experiments = glob.glob(f"{log_path}/{instance}/{H}/{GPU}/*")
-                    experiments.sort()
-
-                    for experiment in experiments:
-                        with open(f"{experiment}/success.txt", "r") as success_file:
-                            for line in success_file:
-                                if line.startswith("reducer"):
-                                    compressor = line.split(":")[-1].strip()
-
-                                    if compressor == reducer:
-                                        model_name = experiment.split("_")[-1].split(".")[0]
-                                        plt.figure(models[model_name])
-
-                                        files = glob.glob(f"{experiment}/*.json")
-                                        files.sort()
-
-                                        worker_mean = []
-                                        worker_variance = []
-
-                                        plt.figure(models[model_name])
-
-                                        for file in files:
-                                            worker_num = int(file.split("_")[-1].split(".")[0])
-
-                                            with open(file) as jsonfile:
-                                                json_data = json.load(jsonfile)
-
-                                            waiting_time = json_data["reduce_times"]
-
-                                            data = waiting_time[1:]
-                                            worker_mean.append(np.mean(data))
-                                            worker_variance.append(np.var(data))
-
-                                            from scipy.stats import gaussian_kde
-
-                                            n_samples = 1000000
-                                            density = gaussian_kde(data)
-                                            samples = density.resample(n_samples)
-
-                                            worker_mean_mc = samples.mean()
-                                            worker_variance_mc = samples.var()
-
-                                            if not mean[model_name].get(worker_num):
-                                                mean[model_name][worker_num] = [np.mean(data)]
-                                                variance[model_name][worker_num] = [np.var(data)]
-                                            else:
-                                                mean[model_name][worker_num].append(np.mean(data))
-                                                variance[model_name][worker_num].append(np.var(data))
-
-                                        mean_MC[model_name].append(np.mean(worker_mean_mc))
-                                        variance_MC[model_name].append(np.mean(worker_variance_mc))
-
-            for model in models:
-                plt.figure()
-                for worker in range(num_workers):
-                    plt.plot(steps, mean[model][worker], label=worker)
-
-                # plt.plot(steps, mean_MC[model], label='Monte Carlo')
-                plt.title(f"Mean_WT_{model}_{reducer}")
-                plt.legend()
-                plt.ylabel("Reduce Time")
-                plt.xlabel("H: Local steps")
-                plt.savefig(f"./plots/mean_reduce_times_{model}_{num_workers} GPU_{instance}_{reducer}.svg")
-                plt.show()
-
-                plt.figure()
-                for worker in range(num_workers):
-                    plt.plot(steps, np.sqrt(variance[model][worker]), label=worker)
-
-                # plt.plot(steps, variance_MC[model], label='Monte Carlo')
-                plt.title(f"Variance_WT_{model}_{reducer}")
-                plt.legend()
-                plt.ylabel("Reduce Time")
-                plt.xlabel("H: Local steps")
-                plt.savefig(f"./plots/var_reduce_times_{model}_{num_workers} GPU_{instance}_{reducer}.svg")
-                plt.show()
-
-
-def plot_performance_modelling(log_path):
-    models = ["ResNet50", "VGG16"]
-    instances = ["P3"]  # , "P3 Multi Node"]
-
-    batch_size = 128
-    inter_gpu_bw = 200 * 1024
-    gpu_cpu_bw = 11 * 1024
-    network_latency = 9e-3
-    network_bw = 1 * 1024 / 8
-    num_gpu_per_node = 4
-
-    for instance in instances:
-        GPUs = [1, 2, 4, 8, 16, 32, 64, 128]
-
-        width = 0.1
-        events = np.arange(len(GPUs))
-
-        throughput_dfs = {model: None for model in models}
-        experiment_groups = [glob.glob(f"{log_path}/{instance}/1 GPU/*{model}") for model in models]
-
-        for group_ind, experiment_group in enumerate(experiment_groups):
-            throughput_results = []
-            compressor_ind_map = {}
-            latest_compressor_ind = 0
-
-            experiment_group.sort()
-
-            for ind, experiment in enumerate(experiment_group):
-                reducer = None
-                quant_level = None
-                higher_quant_level = None
-                compression = None
-                rank = None
-                dynamic_partition = None
-
-                with open(os.path.join(experiment, "success.txt")) as file:
-                    for line in file:
-                        line = line.rstrip()
-
-                        if line.startswith("architecture"):
-                            architecture = line.split(": ")[-1]
-
-                        if line.startswith("reducer"):
-                            reducer = label_dict[line.split(": ")[-1]]
-
-                        if line.startswith("quantization_level"):
-                            quant_level = line.split(": ")[-1]
-
-                        if line.startswith("higher_quantization_level"):
-                            higher_quant_level = line.split(": ")[-1]
-
-                        if line.startswith("compression"):
-                            compression = line.split(": ")[-1]
-
-                        if line.startswith("rank"):
-                            rank = line.split(": ")[-1]
-
-                    if line.startswith("dynamic_partition"):
-                        dynamic_partition = line.split(": ")[-1] == "True"
-
-                    if higher_quant_level:
-                        # label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
-                        label = " ".join([reducer])
-                    elif quant_level:
-                        # label = " ".join([reducer, quant_level, "bits"])
-                        label = " ".join([reducer])
-                    elif compression:
-                        label = " ".join([reducer, "K:", compression])
-                    elif rank:
-                        label = " ".join([reducer, "Rank", rank])
-                    elif dynamic_partition:
-                        label = " ".join([reducer, "DP"])
-                    else:
-                        label = reducer
-
-                if not label in compressor_ind_map:
-                    throughput_results.append([])
-                    compressor_ind_map[label] = latest_compressor_ind
-                    latest_compressor_ind += 1
-
-                time_df = pd.read_json(os.path.join(experiment, "timer_summary.json"))
-
-                if architecture == "ResNet50":
-                    gradient_size = 89.72
-                elif architecture == "VGG16":
-                    gradient_size = 56.18
-                else:
-                    raise ValueError("Model undefined")
-
-                if label_dict["NoneAllReducer"] in label:
-                    gradient_size = gradient_size
-                elif label_dict["QSGDMaxNormReducer"] in label:
-                    gradient_size /= 4
-                elif label_dict["QSGDMaxNormTwoScaleReducer"] in label:
-                    gradient_size /= 2
-                elif label_dict["GlobalRandKMaxNormReducer"] in label:
-                    if architecture == "ResNet50":
-                        gradient_size *= 10000 / 23520842
-                    elif architecture == "VGG16":
-                        gradient_size *= 10000 / 14728266
-                    gradient_size /= 4
-                elif label_dict["GlobalRandKMaxNormTwoScaleReducer"] in label:
-                    if architecture == "ResNet50":
-                        gradient_size *= 10000 / 23520842
-                    elif architecture == "VGG16":
-                        gradient_size *= 10000 / 14728266
-                    gradient_size /= 2
-                else:
-                    raise ValueError("Method undefined")
-
-                for gpu in GPUs:
-                    if gpu > num_gpu_per_node:
-                        num_nodes = gpu / num_gpu_per_node
-                    else:
-                        num_nodes = 1
-
-                    T = (
-                        time_df["batch"]["average_duration"]
-                        + gradient_size / inter_gpu_bw * np.log2(num_gpu_per_node)
-                        + (network_latency + gradient_size / network_bw) * np.log2(num_nodes)
-                    )
-                    throughput = (batch_size * gpu) / T
-
-                    throughput_results[compressor_ind_map[label]].append(int(throughput))
-
-            throughput_dfs[models[group_ind]] = pd.DataFrame(throughput_results, index=compressor_ind_map.keys())
-
-        for df_key in throughput_dfs:
-            fig, axes_main = plt.subplots()
-            axes_inner = plt.axes([0.25, 0.35, 0.3, 0.3])
-            axes_inner_range = list(range(0, 4))
-
-            throughput_df = throughput_dfs[df_key]
-            num_compressors = len(throughput_df) - 1
-
-            for ind, (label, values) in enumerate(throughput_df.iterrows()):
-                values = values.to_list()
-                axes_main.bar(
-                    events + (ind - num_compressors / 2) * width,
-                    values,
-                    width,
-                    label=label,
-                )
-
-            INNER_GPUs = 5
-            for ind, (label, values) in enumerate(throughput_df.iterrows()):
-                axes_inner.bar(
-                        events[:INNER_GPUs] + (ind - num_compressors / 2) * width,
-                        values[:INNER_GPUs],
-                        width,
-                        label=label,
-                    )
-            # axes_inner.grid()
-            axes_inner.set_xticks(events[:INNER_GPUs])
-            axes_inner.set_xticklabels(GPUs[:INNER_GPUs])
-            mark_inset(
-                axes_main,
-                axes_inner,
-                loc1a=4,
-                loc1b=1,
-                loc2a=3,
-                loc2b=2,
-                fc="none",
-                ec="0.5",
-            )
-
-            # axes_main.grid()
-            axes_main.set_xticks(events)
-            axes_main.set_xticklabels(GPUs)
-            axes_main.set_ylabel("Images per sec")
-            axes_main.set_xlabel("Number of GPUs")
-            # axes_main.set_title(f"Performance Modelling {df_key} {instance}")
-            axes_main.legend()
-
-            plt.tight_layout()
-            plt.savefig(f"./plots/performance_modelling_{df_key}_{instance}.svg")
+                plt.savefig(f"./plots/process_times_histogram_{model_name}_{dynamic_partition}_{reducer}.svg")
             plt.show()
 
 
 if __name__ == "__main__":
     root_log_path = "./logs/plot_logs/"
 
-    # plot_loss_curves(os.path.join(root_log_path, "convergence"))
-    # plot_loss_time_curves(os.path.join(root_log_path, "convergence"))
-    # plot_top1_accuracy_curves(os.path.join(root_log_path, "convergence"))
-    # plot_top1_accuracy_time_curves(os.path.join(root_log_path, "convergence"))
-    # plot_top5_accuracy_curves(os.path.join(root_log_path, "convergence"))
+    plot_loss_curves(os.path.join(root_log_path, "convergence"))
+    plot_loss_time_curves(os.path.join(root_log_path, "convergence"))
+    plot_top1_accuracy_curves(os.path.join(root_log_path, "convergence"))
+    plot_top1_accuracy_time_curves(os.path.join(root_log_path, "convergence"))
+    plot_top5_accuracy_curves(os.path.join(root_log_path, "convergence"))
 
-    # plot_time_breakdown(os.path.join(root_log_path, "time_breakdown"))
-    # plot_time_scalability(os.path.join(root_log_path, 'scalability'))
-    # plot_throughput_scalability(os.path.join(root_log_path, 'scalability'))
+    plot_time_breakdown(os.path.join(root_log_path, "time_breakdown"))
+    plot_time_scalability(os.path.join(root_log_path, "scalability"))
+    plot_throughput_scalability(os.path.join(root_log_path, "scalability"))
 
-    # plot_performance_modelling(os.path.join(root_log_path, "scalability"))
-
-    # plot_process_times_AWS(os.path.join(root_log_path, 'process_times'))
-    # plot_process_times_histogram_AWS(os.path.join(root_log_path, 'process_times'))
-    # plot_process_times_histogram(os.path.join(root_log_path, 'process_times'))
-
-    # plot_time_per_batch_curves(os.path.join(root_log_path, "convergence"))
-    # plot_waiting_times(os.path.join(root_log_path, 'waiting_times'))
-    # plot_waiting_times_AWS(os.path.join(root_log_path, 'waiting_times'))
-    # plot_mean_variance_AWS(os.path.join(root_log_path, 'waiting_times'), 4)
-    # plot_reduce_times_AWS(os.path.join(root_log_path, 'waiting_times'))
-    # plot_heterogenous_AWS(os.path.join(root_log_path, "heterogenous"))
-    # plot_histogram_heterogenous_AWS(os.path.join(root_log_path, 'heterogenous'))
-    # plot_mean_variance_reduce_time_AWS(os.path.join(root_log_path, 'waiting_times'), 4)
+    plot_process_times_AWS(os.path.join(root_log_path, "process_times"))
+    plot_process_times_histogram_AWS(os.path.join(root_log_path, "process_times"))
+    plot_process_times_histogram(os.path.join(root_log_path, "process_times"))

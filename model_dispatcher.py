@@ -3,6 +3,7 @@ import torchvision
 import torch.distributed as dist
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
+
 # from torch.utils.data import DataLoader, DistributedSampler
 
 import models
@@ -66,9 +67,7 @@ class CIFAR:
         return model
 
     def train_dataloader(self, partitions, batch_size=32):
-        train_sampler = DistributedSampler(
-            dataset=self._train_set, batch_size=batch_size, partitions=partitions
-        )
+        train_sampler = DistributedSampler(dataset=self._train_set, batch_size=batch_size, partitions=partitions)
         train_sampler.set_epoch(self._epoch)
         batch_size = train_sampler.get_batch_size()
 
@@ -91,9 +90,7 @@ class CIFAR:
         self._epoch += 1
 
     def test_dataloader(self, partition, batch_size=32):
-        test_sampler = DistributedSampler(
-            dataset=self._test_set, batch_size=batch_size, partitions=partition
-        )
+        test_sampler = DistributedSampler(dataset=self._test_set, batch_size=batch_size, partitions=partition)
 
         test_loader = DataLoader(
             dataset=self._test_set,

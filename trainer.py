@@ -1,5 +1,4 @@
 import os
-import datetime
 import argparse
 import numpy as np
 
@@ -7,38 +6,12 @@ import torch
 import torch.optim as optim
 import torch.distributed as dist
 
-from model_dispatcher import CIFAR
-from reducer import (
-    NoneReducer,
-    NoneAllReducer,
-    QSGDReducer,
-    QSGDWECReducer,
-    QSGDWECModReducer,
-    TernGradReducer,
-    TernGradModReducer,
-    QSGDMaxNormReducer,
-    # QSGDBPReducer,
-    # QSGDBPAllReducer,
-    GlobalRandKMaxNormReducer,
-    MaxNormGlobalRandKReducer,
-    NUQSGDModReducer,
-    NUQSGDMaxNormReducer,
-    TopKReducer,
-    TopKReducerRatio,
-    GlobalTopKReducer,
-    GlobalTopKReducerRatio,
-    QSGDMaxNormBiasedReducer,
-    QSGDMaxNormBiasedMemoryReducer,
-    NUQSGDMaxNormBiasedReducer,
-    NUQSGDMaxNormBiasedMemoryReducer,
-    QSGDMaxNormTwoScaleReducer,
-    GlobalRandKMaxNormTwoScaleReducer,
-    QSGDMaxNormMultiScaleReducer,
-)
+from seed import set_seed
 from timer import Timer
 from logger import Logger
 from metrics import AverageMeter
-from seed import set_seed
+from model_dispatcher import CIFAR
+from reducer import NoneAllReducer
 
 
 config = dict(
@@ -54,17 +27,10 @@ config = dict(
     # delay_type="gamma",
     # delay_type="exponential",
     # scale_factor=0.25,
-    dynamic_partition = True,
+    dynamic_partition=True,
     # dynamic_partition = False,
-    # enhance=False,
     enhance=True,
-    # K=10000,
-    # compression=1/1000,
-    # quantization_level=6,
-    # higher_quantization_level=10,
-    # quantization_levels=[6, 10, 16],
-    # rank=1,
-    reducer="NoneAllReducer",
+    # enhance=False,
     seed=42,
     log_verbosity=2,
     lr=0.1,
@@ -86,81 +52,14 @@ def initiate_distributed():
 
 def train(local_rank, world_size):
     logger = Logger(config, local_rank)
-    best_accuracy = {"top1": [0] * config['runs'], "top5": [0] * config['runs']}
+    best_accuracy = {"top1": [0] * config["runs"], "top5": [0] * config["runs"]}
 
-    for run in range(config['runs']):
-        set_seed(config['seed'])
+    for run in range(config["runs"]):
+        set_seed(config["seed"])
         device = torch.device(f"cuda:{local_rank}")
         timer = Timer(verbosity_level=config["log_verbosity"])
 
-        if config["reducer"] in [
-            "NoneReducer",
-            "NoneAllReducer",
-            "TernGradReducer",
-            "TernGradModReducer",
-        ]:
-            reducer = globals()[config["reducer"]](device, timer)
-        elif config["reducer"] in [
-            "QSGDReducer",
-            "QSGDWECReducer",
-            "QSGDWECModReducer",
-            "QSGDBPReducer",
-            "QSGDBPAllReducer",
-            "QSGDMaxNormReducer",
-            "NUQSGDModReducer",
-            "NUQSGDMaxNormReducer",
-            "QSGDMaxNormBiasedReducer",
-            "QSGDMaxNormBiasedMemoryReducer",
-            "NUQSGDMaxNormBiasedReducer",
-            "NUQSGDMaxNormBiasedMemoryReducer",
-            "QSGDMaxNormMaskReducer",
-        ]:
-            reducer = globals()[config["reducer"]](device, timer, quantization_level=config["quantization_level"])
-        elif config["reducer"] in [
-            "GlobalRandKMaxNormReducer",
-            "MaxNormGlobalRandKReducer",
-        ]:
-            reducer = globals()[config["reducer"]](
-                device,
-                timer,
-                K=config["K"],
-                quantization_level=config["quantization_level"],
-                seed=config['seed'],
-            )
-        elif config["reducer"] in ["TopKReducer", "GlobalTopKReducer"]:
-            reducer = globals()[config["reducer"]](device, timer, K=config["K"])
-        elif config["reducer"] in ["TopKReducerRatio", "GlobalTopKReducerRatio"]:
-            reducer = globals()[config["reducer"]](device, timer, compression=config["compression"])
-        elif config["reducer"] in ["QSGDMaxNormTwoScaleReducer"]:
-            reducer = globals()[config["reducer"]](
-                device,
-                timer,
-                lower_quantization_level=config["quantization_level"],
-                higher_quantization_level=config["higher_quantization_level"],
-            )
-        elif config["reducer"] in ["GlobalRandKMaxNormTwoScaleReducer"]:
-            reducer = globals()[config["reducer"]](
-                device,
-                timer,
-                lower_quantization_level=config["quantization_level"],
-                higher_quantization_level=config["higher_quantization_level"],
-                seed=config['seed'],
-            )
-        elif config["reducer"] in ["QSGDMaxNormMultiScaleReducer"]:
-            reducer = globals()[config["reducer"]](
-                device,
-                timer,
-                quantization_levels=config["quantization_levels"],
-            )
-        elif config["reducer"] in ["RankKReducer"]:
-            reducer = globals()[config["reducer"]](
-                device,
-                timer,
-                rank=config["rank"],
-            )
-        else:
-            raise NotImplementedError("Reducer method not implemented")
-
+        reducer = NoneAllReducer(device, timer)
         lr = config["lr"]
         bits_communicated = 0
 
@@ -174,7 +73,7 @@ def train(local_rank, world_size):
         optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9, weight_decay=5e-4, nesterov=True)
 
         # scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=50, gamma=0.1)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config["num_epochs"], eta_min=0)
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config["num_epochs"], eta_min=0)
 
         for epoch in range(config["num_epochs"]):
             if local_rank == 0:
@@ -184,7 +83,11 @@ def train(local_rank, world_size):
                     {"lr": scheduler.get_last_lr()},
                 )
 
-            logger.log_info("partition_info", {"Current_epoch": epoch}, {"Rank": local_rank, "Current_size": partitions[local_rank]})
+            logger.log_info(
+                "partition_info",
+                {"Current_epoch": epoch},
+                {"Rank": local_rank, "Current_size": partitions[local_rank]},
+            )
 
             epoch_metrics = AverageMeter(device)
 
@@ -202,43 +105,50 @@ def train(local_rank, world_size):
                             import time
 
                             if config["delay_type"] == "constant":
-                                time.sleep(config['delay_constant'])
+                                time.sleep(config["delay_constant"])
                             elif config["delay_type"] == "gamma":
-                                time.sleep((np.random.gamma(config['scale_factor'])))
+                                time.sleep((np.random.gamma(config["scale_factor"])))
                             elif config["delay_type"] == "exponential":
-                                time.sleep((np.random.exponential(config['scale_factor'])))
+                                time.sleep((np.random.exponential(config["scale_factor"])))
 
-                        if global_iteration_count % config["local_steps"] == 0:
-                            with timer("batch.accumulate", epoch_frac, verbosity=2):
-                                for grad, send_buffer in zip(grads, send_buffers):
-                                    if config['enhance']:
-                                        send_buffer[:] = grad * partitions[local_rank]
-                                    else:
-                                        send_buffer[:] = grad
+                    if global_iteration_count % config["local_steps"] == 0:
+                        with timer("batch.accumulate", epoch_frac, verbosity=2):
+                            for grad, send_buffer in zip(grads, send_buffers):
+                                if config["enhance"]:
+                                    send_buffer[:] = grad * partitions[local_rank]
+                                else:
+                                    send_buffer[:] = grad
 
-                    with timer("batch.reduce", epoch_frac):
-                        bits_communicated += reducer.reduce(send_buffers, grads)
+                        with timer("batch.reduce", epoch_frac):
+                            bits_communicated += reducer.reduce(send_buffers, grads)
 
                     with timer("batch.step", epoch_frac, verbosity=2):
                         optimizer.step()
 
             scheduler.step()
 
-            mean_batch_process_time = torch.tensor(sum(timer.batch_process_times) / len(timer.batch_process_times), device=device, dtype=torch.float32)
-            collected_batch_process_times = [torch.empty_like(mean_batch_process_time) for _ in range(world_size)]
-
-            timer.batch_process_times = []
+            mean_batch_process_time = torch.tensor(
+                sum(timer.batch_process_times) / len(timer.batch_process_times), device=device, dtype=torch.float32
+            )
             timer.mean_batch_process_times.append(mean_batch_process_time.item())
             print(f"Mean Batch Time for Rank {local_rank}:", mean_batch_process_time.item())
 
+            timer.batch_process_times = []
+            collected_batch_process_times = [torch.empty_like(mean_batch_process_time) for _ in range(world_size)]
+
             if world_size > 1:
-                batch_process_time_workers_op = torch.distributed.all_gather(tensor_list=collected_batch_process_times, tensor=mean_batch_process_time, async_op=True)
+                batch_process_time_workers_op = torch.distributed.all_gather(
+                    tensor_list=collected_batch_process_times, tensor=mean_batch_process_time, async_op=True
+                )
                 batch_process_time_workers_op.wait()
             else:
-                collected_batch_process_times = mean_batch_process_time
+                collected_batch_process_times = [mean_batch_process_time]
 
-            if config['dynamic_partition']:
-                partitions = [(partition / batch_process_time).item() for batch_process_time, partition in zip(collected_batch_process_times, partitions)]
+            if config["dynamic_partition"]:
+                partitions = [
+                    (partition / batch_process_time).item()
+                    for batch_process_time, partition in zip(collected_batch_process_times, partitions)
+                ]
                 partitions = [partition / sum(partitions) for partition in partitions]
 
             with timer("epoch_metrics.collect", epoch, verbosity=2):

@@ -8,7 +8,6 @@ import numpy as np
 import torch.distributed as dist
 
 
-
 class Timer:
     """
     Timer for PyTorch code

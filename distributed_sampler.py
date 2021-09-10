@@ -11,6 +11,11 @@ from itertools import islice
 T_co = TypeVar("T_co", covariant=True)
 
 
+"""
+Modification of PyTorch inbuilt distributed sampler to enable dynamic partitioning. 
+"""
+
+
 class DistributedSampler(Sampler[T_co]):
     def __init__(
         self,
