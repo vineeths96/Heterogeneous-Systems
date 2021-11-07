@@ -90,7 +90,7 @@ We conducted experiments on [ResNet50](https://arxiv.org/abs/1512.03385) archite
 
 ## Results
 
-We highly recommend to read through the [paper](https://arxiv.org/abs/2110.08941) before proceeding to this section. The paper explains the different compression schemes we propose and contains many more analysis & results than what is presented here. 
+We highly recommend to read through the [paper](https://arxiv.org/abs/2110.08941) before proceeding to this section. The paper explains the dynamic partitioning schemes we propose and contains many more analysis & results than what is presented here. 
 
 We begin with an explanation of the notations used for the plot legends in this section. *Sync-SGD* corresponds to the default gradient aggregation provided by PyTorch. *DP-SGD* and *EDP-SGD* corresponds to *Dynamic Partitioning* and *Enhanced Dynamic Partitioning* respectively. We artificially simulate heterogeneity by adding time delays to a subset of workers. We evaluate the algorithms for a low level of heterogeneity and a high level of heterogeneity.
 
