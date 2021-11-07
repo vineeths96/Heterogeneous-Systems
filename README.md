@@ -99,8 +99,8 @@ We begin with an explanation of the notations used for the plot legends in this 
 |                           ResNet50                           |                            VGG16                             |
 | :----------------------------------------------------------: | :----------------------------------------------------------: |
 |  ![Loss](./plots/Delay_2/loss_time_ResNet50.svg)Loss Curve   |    ![Loss](./plots/Delay_2/loss_time_VGG16.svg)Loss Curve    |
-| ![AR](./plots/Histograms_0.1/process_times_histogram_ResNet50_False_AllReduce SGD.svg)Without Dynamic Partitioning | ![AR](./plots/Histograms_0.1/process_times_histogram_VGG16_False_AllReduce SGD.svg)Without Dynamic Partitioning |
-| ![DP](./plots/Histograms_0.1/process_times_histogram_ResNet50_True_AllReduce SGD.svg)With Dynamic Partitioning | ![DP](./plots/Histograms_0.1/process_times_histogram_VGG16_True_AllReduce SGD.svg)With Dynamic Partitioning |
+| ![AR](./plots/Histograms_0.1/process_times_histogram_ResNet50_False_AllReduce%20SGD.svg)Without Dynamic Partitioning | ![AR](./plots/Histograms_0.1/process_times_histogram_VGG16_False_AllReduce%20SGD.svg)Without Dynamic Partitioning |
+| ![DP](./plots/Histograms_0.1/process_times_histogram_ResNet50_True_AllReduce%20SGD.svg)With Dynamic Partitioning | ![DP](./plots/Histograms_0.1/process_times_histogram_VGG16_True_AllReduce%20SGD.svg)With Dynamic Partitioning |
 
 
 
